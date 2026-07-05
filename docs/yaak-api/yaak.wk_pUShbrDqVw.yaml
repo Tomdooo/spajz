@@ -1,0 +1,17 @@
+type: workspace
+model: workspace
+id: wk_pUShbrDqVw
+createdAt: 2026-07-04T07:43:58.666823
+updatedAt: 2026-07-04T07:43:58.666824
+authentication: {}
+authenticationType: null
+description: ''
+headers: []
+name: Spajz
+encryptionKeyChallenge: null
+settingValidateCertificates: true
+settingFollowRedirects: true
+settingRequestTimeout: 0
+settingDnsOverrides: []
+settingSendCookies: true
+settingStoreCookies: true

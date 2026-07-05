@@ -3,7 +3,7 @@ package buckets
 import (
 	"path/filepath"
 
-	"github.com/Tomdooo/storos/internal/config"
+	"github.com/Tomdooo/spajz/internal/config"
 )
 
 func getDefaultConfig() BucketConfig {

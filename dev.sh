@@ -1,5 +1,5 @@
 #!/bin/bash
 
-export STOROS_DATA="./data"
+export SPAJZ_DATA="./data"
 
 air

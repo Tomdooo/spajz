@@ -1,0 +1,14 @@
+type: environment
+model: environment
+id: ev_kPaFxDHLto
+workspaceId: wk_pUShbrDqVw
+createdAt: 2026-07-04T07:44:50.116015
+updatedAt: 2026-07-04T07:46:53.047285
+name: REST API Environment
+public: true
+base: false
+parentModel: folder
+parentId: fl_PoqkF7YLNE
+variables: []
+color: null
+sortPriority: 0.0

@@ -1,0 +1,28 @@
+type: folder
+model: folder
+id: fl_PoqkF7YLNE
+createdAt: 2026-07-04T07:44:25.564982
+updatedAt: 2026-07-04T07:44:25.564982
+workspaceId: wk_pUShbrDqVw
+folderId: null
+authentication: {}
+authenticationType: null
+description: ''
+headers: []
+name: REST API
+sortPriority: -1783151065563.0
+settingSendCookies:
+  enabled: false
+  value: true
+settingStoreCookies:
+  enabled: false
+  value: true
+settingValidateCertificates:
+  enabled: false
+  value: true
+settingFollowRedirects:
+  enabled: false
+  value: true
+settingRequestTimeout:
+  enabled: false
+  value: 0

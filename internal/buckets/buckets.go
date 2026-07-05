@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
-	"github.com/Tomdooo/storos/internal/config"
+	"github.com/Tomdooo/spajz/internal/config"
 )
 
 const CONFIG_FILE_NAME = "bucket.toml"
@@ -38,7 +38,7 @@ func Create(bucket string) error {
 	}
 
 	if _, err := f.Write(defaultConfigToml); err != nil {
-		return fmt.Errorf("failed to write config to %q: %w", configFile, err)
+		return fmt.Errorf("failed to write bucket config to %q: %w", configFile, err)
 	}
 
 	return nil
@@ -54,4 +54,13 @@ func Exists(bucket string) (bool, error) {
 	} else {
 		return false, fmt.Errorf("failed to verify existance of bucket config file at %q: %w", configFile, err)
 	}
+}
+
+func Delete(bucket string) error {
+	bucketPath := GetPath(bucket)
+	err := os.RemoveAll(bucketPath)
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -10,9 +10,9 @@ var DataDir string
 var TempDir string
 
 func init() {
-	DataDir = os.Getenv("STOROS_DATA")
+	DataDir = os.Getenv("SPAJZ_DATA")
 	if DataDir == "" {
-		fmt.Println("STOROS_DATA environment variable not set!")
+		fmt.Println("SPAJZ_DATA environment variable not set!")
 		os.Exit(1)
 	}
 
