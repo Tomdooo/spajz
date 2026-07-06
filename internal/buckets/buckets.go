@@ -14,6 +14,8 @@ const CONFIG_FILE_NAME = "bucket.toml"
 
 var ErrAlreadyExists = errors.New("Bucket already exists.")
 
+var bucketConfigManager = config.GetBucketConfigManager()
+
 func Create(bucket string) error {
 	bucketDir := filepath.Join(config.DataDir, bucket)
 	configFile := filepath.Join(bucketDir, CONFIG_FILE_NAME)
@@ -32,7 +34,7 @@ func Create(bucket string) error {
 	}
 	defer f.Close()
 
-	defaultConfigToml, err := toml.Marshal(config.GetDefaultBucketConfig())
+	defaultConfigToml, err := toml.Marshal(bucketConfigManager.GetDefaultConfig())
 	if err != nil {
 		return fmt.Errorf("failed to marshal default bucket config for %q: %w", bucket, err)
 	}

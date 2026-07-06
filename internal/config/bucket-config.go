@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -10,7 +11,23 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-func GetDefaultBucketConfig() *BucketConfig {
+var (
+	ErrBucketNotExist = errors.New("Bucket not exist.")
+	ErrPresetNotExist = errors.New("Preset not exist.")
+)
+
+var bucketConfigManager = new(BucketConfigManager{})
+
+type BucketConfigMap map[string]*BucketConfig
+type BucketConfigManager struct {
+	configMap BucketConfigMap
+}
+
+func GetBucketConfigManager() *BucketConfigManager {
+	return bucketConfigManager
+}
+
+func (m *BucketConfigManager) GetDefaultConfig() *BucketConfig {
 	bucketSection := BucketSection{
 		IsPublic: true,
 	}
@@ -25,18 +42,14 @@ func GetDefaultBucketConfig() *BucketConfig {
 	}
 }
 
-type bucketConfigMap map[string]*BucketConfig
-
-var Buckets bucketConfigMap
-
-func LoadBucketConfigs() error {
+func (m *BucketConfigManager) LoadBucketConfigs() error {
 	bucketsDir := filepath.Join(DataDir)
 	dirEntries, err := os.ReadDir(bucketsDir)
 	if err != nil {
 		return fmt.Errorf("failed to read buckets directory: %w", err)
 	}
 
-	Buckets = make(bucketConfigMap)
+	m.configMap = make(BucketConfigMap)
 
 	for _, dirEntry := range dirEntries {
 		if !dirEntry.IsDir() || strings.HasPrefix(dirEntry.Name(), ".") {
@@ -72,13 +85,29 @@ func LoadBucketConfigs() error {
 			bucketConfig.Presets.Video[videoPreset.Name] = &videoPreset
 		}
 
-		Buckets[dirEntry.Name()] = bucketConfig
+		m.configMap[dirEntry.Name()] = bucketConfig
 	}
 
 	slog.Info("successfully loaded buckets")
 	return nil
 }
 
-func GetBucketConfig(bucket string) {
+func (m *BucketConfigManager) GetConfig(bucket string) (*BucketConfig, error) {
+	config := m.configMap[bucket]
+	if config == nil {
+		return nil, ErrBucketNotExist
+	}
+	return config, nil
+}
 
+func (m *BucketConfigManager) GetImagePreset(bucket, preset string) (*ImagePreset, error) {
+	bucketConfig := m.configMap[bucket]
+	if bucketConfig == nil {
+		return nil, ErrBucketNotExist
+	}
+	presetConfig := bucketConfig.Presets.Image[preset]
+	if presetConfig == nil {
+		return nil, ErrPresetNotExist
+	}
+	return presetConfig, nil
 }

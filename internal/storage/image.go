@@ -16,11 +16,14 @@ var ErrUnsupportedFormat = errors.New("Unsupported format.")
 var imageGenerator = NewImageGenerator()
 
 type ImageGenerator struct {
-	presetGroup singleflight.Group
+	presetGroup         singleflight.Group
+	bucketConfigManager *config.BucketConfigManager
 }
 
 func NewImageGenerator() *ImageGenerator {
-	return &ImageGenerator{}
+	return &ImageGenerator{
+		bucketConfigManager: config.GetBucketConfigManager(),
+	}
 }
 
 func (ig *ImageGenerator) getBimgImageType(format string) (bimg.ImageType, error) {
@@ -55,13 +58,13 @@ func (ig *ImageGenerator) CreatePresetVariant(bucket string, filename string, pr
 			return nil, fmt.Errorf("failed to read original file: %w", err)
 		}
 		// Prepare preset config
-		bucketConfig := config.Buckets[bucket]
-		if bucketConfig == nil {
-			return nil, ErrBucketNotExist
-		}
-		presetConfig := bucketConfig.Presets.Image[preset]
-		if presetConfig == nil {
-			return nil, ErrPresetNotExist
+		presetConfig, err := ig.bucketConfigManager.GetImagePreset(bucket, preset)
+		if err != nil {
+			if errors.Is(err, config.ErrBucketNotExist) {
+				return nil, ErrBucketNotExist
+			} else if errors.Is(err, config.ErrPresetNotExist) {
+				return nil, ErrPresetNotExist
+			}
 		}
 
 		format, err := ig.getBimgImageType(presetConfig.Format)

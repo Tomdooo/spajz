@@ -24,10 +24,7 @@ func init() {
 		os.Exit(1)
 	}
 
-	if err := LoadBucketConfigs(); err != nil {
-		log.Fatalf("failed to load bucket configs: %w", err)
+	if err := bucketConfigManager.LoadBucketConfigs(); err != nil {
+		log.Fatal("failed to load bucket configs", "error", err)
 	}
-
-	fmt.Println(Buckets["test"])
-
 }
