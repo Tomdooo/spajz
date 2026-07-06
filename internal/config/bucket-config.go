@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 
 	"github.com/BurntSushi/toml"
 )
+
+const BUCKET_CONFIG_FILE_NAME = "bucket.toml"
 
 var (
 	ErrBucketNotExist = errors.New("Bucket not exist.")
@@ -45,8 +46,7 @@ func (m *BucketConfigManager) GetDefaultConfig() *BucketConfig {
 }
 
 func (m *BucketConfigManager) LoadBucketConfigs() error {
-	bucketsDir := filepath.Join(DataDir)
-	dirEntries, err := os.ReadDir(bucketsDir)
+	dirEntries, err := os.ReadDir(DataDir)
 	if err != nil {
 		return fmt.Errorf("failed to read buckets directory: %w", err)
 	}
@@ -61,40 +61,56 @@ func (m *BucketConfigManager) LoadBucketConfigs() error {
 			continue
 		}
 
-		bucketConfigPath := filepath.Join(bucketsDir, dirEntry.Name(), "bucket.toml")
-		// file, err := os.ReadFile(bucketConfigPath)
+		// bucketConfigPath := GetBucketConfigPath(dirEntry.Name())
+
+		// var bucketConfig *BucketConfig
+		// _, err := toml.DecodeFile(bucketConfigPath, &bucketConfig)
 		// if err != nil {
 		// 	if os.IsNotExist(err) {
-		// 		slog.Info("folder '%s' is not bucket", dirEntry.Name())
+		// 		slog.Debug("folder is not bucket", "folder", dirEntry.Name())
 		// 		continue
 		// 	}
 		// 	return fmt.Errorf("failed to read bucket config in folder '%s': %w", dirEntry.Name(), err)
 		// }
 
-		var bucketConfig *BucketConfig
-		_, err := toml.DecodeFile(bucketConfigPath, &bucketConfig)
+		// bucketConfig.ProcessPresets()
+
+		err := m.loadBucket(dirEntry.Name())
 		if err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, ErrBucketNotExist) {
 				slog.Debug("folder is not bucket", "folder", dirEntry.Name())
 				continue
 			}
-			return fmt.Errorf("failed to read bucket config in folder '%s': %w", dirEntry.Name(), err)
+			return err
 		}
-
-		bucketConfig.Presets.Image = make(ImagePresetMap)
-		for _, imagePreset := range bucketConfig.Presets.RawImagePresets {
-			bucketConfig.Presets.Image[imagePreset.Name] = &imagePreset
-		}
-		bucketConfig.Presets.Video = make(VideoPresetMap)
-		for _, videoPreset := range bucketConfig.Presets.RawVideoPresets {
-			bucketConfig.Presets.Video[videoPreset.Name] = &videoPreset
-		}
-
-		m.configMap[dirEntry.Name()] = bucketConfig
 	}
 
 	count := len(m.configMap)
 	slog.Info("Buckets loaded successfully", "count", count)
+	return nil
+}
+
+func (m *BucketConfigManager) LoadBucket(bucket string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.loadBucket(bucket)
+}
+
+func (m *BucketConfigManager) loadBucket(bucket string) error {
+	bucketConfigPath := GetBucketConfigPath(bucket)
+
+	var bucketConfig *BucketConfig
+	_, err := toml.DecodeFile(bucketConfigPath, &bucketConfig)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ErrBucketNotExist
+		}
+		return fmt.Errorf("failed to decode bucket config for '%s': %w", bucket, err)
+	}
+
+	bucketConfig.ProcessPresets()
+	m.configMap[bucket] = bucketConfig
+
 	return nil
 }
 

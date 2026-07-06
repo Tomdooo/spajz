@@ -4,21 +4,18 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 	"github.com/Tomdooo/spajz/internal/config"
 )
-
-const CONFIG_FILE_NAME = "bucket.toml"
 
 var ErrAlreadyExists = errors.New("Bucket already exists.")
 
 var bucketConfigManager = config.GetBucketConfigManager()
 
 func Create(bucket string) error {
-	bucketDir := filepath.Join(config.DataDir, bucket)
-	configFile := filepath.Join(bucketDir, CONFIG_FILE_NAME)
+	bucketDir := config.GetBucketDir(bucket)
+	configFile := config.GetBucketConfigPath(bucket)
 
 	if err := os.MkdirAll(bucketDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create bucket directory at %q: %w", bucketDir, err)
@@ -47,7 +44,7 @@ func Create(bucket string) error {
 }
 
 func Exists(bucket string) (bool, error) {
-	configFile := filepath.Join(config.DataDir, bucket, CONFIG_FILE_NAME)
+	configFile := config.GetBucketConfigPath(bucket)
 	_, err := os.Stat(configFile)
 	if err == nil {
 		return true, nil
@@ -59,7 +56,7 @@ func Exists(bucket string) (bool, error) {
 }
 
 func Delete(bucket string) error {
-	bucketPath := GetPath(bucket)
+	bucketPath := config.GetBucketDir(bucket)
 	err := os.RemoveAll(bucketPath)
 	if err != nil {
 		return err

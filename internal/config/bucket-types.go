@@ -43,3 +43,15 @@ type VideoPreset struct {
 	Fps         int    `toml:"fps"`
 	BitrateKbps int    `toml:"bitrate_kbps"`
 }
+
+// NOTE: does not uses mutex lock
+func (c *BucketConfig) ProcessPresets() {
+	c.Presets.Image = make(ImagePresetMap)
+		for _, imagePreset := range c.Presets.RawImagePresets {
+			c.Presets.Image[imagePreset.Name] = &imagePreset
+		}
+		c.Presets.Video = make(VideoPresetMap)
+		for _, videoPreset := range c.Presets.RawVideoPresets {
+			c.Presets.Video[videoPreset.Name] = &videoPreset
+		}
+}

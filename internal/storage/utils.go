@@ -7,12 +7,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Tomdooo/spajz/internal/buckets"
+	"github.com/Tomdooo/spajz/internal/config"
 	"github.com/Tomdooo/spajz/pkg/hashx"
 )
 
 func getStorageDir(bucket string) string {
-	return filepath.Join(buckets.GetPath(bucket), STORAGE_DIR)
+	return filepath.Join(config.GetBucketDir(bucket), STORAGE_DIR)
 }
 
 func getFilenameHash(filename string) string {
