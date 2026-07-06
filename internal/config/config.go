@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 )
@@ -22,5 +23,11 @@ func init() {
 		fmt.Println("Error creating data folder.")
 		os.Exit(1)
 	}
+
+	if err := LoadBucketConfigs(); err != nil {
+		log.Fatalf("failed to load bucket configs: %w", err)
+	}
+
+	fmt.Println(Buckets["test"])
 
 }

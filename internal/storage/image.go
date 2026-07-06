@@ -1,0 +1,99 @@
+package storage
+
+import (
+	"errors"
+	"fmt"
+	"strings"
+
+	"github.com/Tomdooo/spajz/internal/config"
+	"github.com/h2non/bimg"
+	"golang.org/x/sync/singleflight"
+)
+
+var ErrPresetNotExist = errors.New("Preset not exist.")
+var ErrUnsupportedFormat = errors.New("Unsupported format.")
+
+var imageGenerator = NewImageGenerator()
+
+type ImageGenerator struct {
+	presetGroup singleflight.Group
+}
+
+func NewImageGenerator() *ImageGenerator {
+	return &ImageGenerator{}
+}
+
+func (ig *ImageGenerator) getBimgImageType(format string) (bimg.ImageType, error) {
+	switch strings.ToLower(format) {
+	case "webp":
+		return bimg.WEBP, nil
+	case "png":
+		return bimg.PNG, nil
+	case "jpg":
+	case "jpeg":
+		return bimg.JPEG, nil
+	case "avif":
+		return bimg.AVIF, nil
+	case "gif":
+		return bimg.GIF, nil
+	case "heig":
+		return bimg.HEIF, nil
+	}
+
+	return 0, ErrUnsupportedFormat
+}
+
+func (ig *ImageGenerator) CreatePresetVariant(bucket string, filename string, preset string) ([]byte, error) {
+	key := bucket + "@" + filename + "@" + preset
+
+	// Initialize singleflight
+	v, err, _ := ig.presetGroup.Do(key, func() (any, error) {
+
+		// Load original image
+		originalImage, err := Get(bucket, filename)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read original file: %w", err)
+		}
+		// Prepare preset config
+		bucketConfig := config.Buckets[bucket]
+		if bucketConfig == nil {
+			return nil, ErrBucketNotExist
+		}
+		presetConfig := bucketConfig.Presets.Image[preset]
+		if presetConfig == nil {
+			return nil, ErrPresetNotExist
+		}
+
+		format, err := ig.getBimgImageType(presetConfig.Format)
+		if err != nil {
+			return nil, err
+		}
+
+		// Initialize bimg transformation
+		image := bimg.NewImage(originalImage)
+		options := bimg.Options{
+			Width:         presetConfig.Width,
+			Height:        presetConfig.Height,
+			Type:          format, // Vynutíme WebP pro web
+			Quality:       presetConfig.Quality,
+			Enlarge:       presetConfig.Enlarge,
+			Embed:         true,
+			StripMetadata: true,
+		}
+
+		// Process image
+		transformedData, err := image.Process(options)
+		if err != nil {
+			return nil, fmt.Errorf("bimg processing failed: %w", err)
+		}
+
+		return transformedData, nil
+	})
+
+	// Check for singleflight errors
+	if err != nil {
+		return nil, err
+	}
+
+	return v.([]byte), nil
+}

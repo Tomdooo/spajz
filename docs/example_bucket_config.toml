@@ -1,0 +1,43 @@
+# ==========================================
+# HLAVNÍ DEFAULT CONFIG BUCKETU
+# ==========================================
+[bucket]
+name = "kamosuv-web"
+is_public = true
+max_file_size_bytes = 52428800 # 50 MB
+
+# ==========================================
+# CACHE & LIMIT ENGINE (Hlídání disku)
+# ==========================================
+[cache]
+enabled = true
+max_size_gb = 5.0              # Tvůj limit pro LRU na disku [cite: 36, 755]
+clean_batch_size = 50          # Kolik souborů smazat naráz při přetečení [cite: 860]
+
+# ==========================================
+# IMAGE VARIANTY (PRESETS)
+# ==========================================
+[[presets.image]]
+name = "thumb"
+width = 300
+height = 300
+format = "webp"
+enlarge = false                # Bezpečnost: Neupscalovat malé ikony [cite: 208]
+quality = 80
+
+[[presets.image]]
+name = "hero"
+width = 1200
+format = "avif"
+enlarge = false
+quality = 85
+
+# ==========================================
+# VIDEO VARIANTY (Budoucí rozšíření)
+# ==========================================
+[[presets.video]]
+name = "mobile_mp4"
+codec = "h264"
+resolution = "720p"
+fps = 30
+bitrate_kbps = 1500

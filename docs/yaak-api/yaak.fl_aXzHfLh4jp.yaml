@@ -1,16 +1,16 @@
 type: folder
 model: folder
-id: fl_PoqkF7YLNE
-createdAt: 2026-07-04T07:44:25.564982
-updatedAt: 2026-07-05T15:56:10.215868
+id: fl_aXzHfLh4jp
+createdAt: 2026-07-05T15:56:17.684779
+updatedAt: 2026-07-05T15:56:17.684780
 workspaceId: wk_pUShbrDqVw
-folderId: null
+folderId: fl_PoqkF7YLNE
 authentication: {}
 authenticationType: null
 description: ''
 headers: []
-name: API
-sortPriority: -1783151065563.0
+name: REST
+sortPriority: -1783266977683.0
 settingSendCookies:
   enabled: false
   value: true

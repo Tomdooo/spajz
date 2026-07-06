@@ -32,7 +32,7 @@ func Create(bucket string) error {
 	}
 	defer f.Close()
 
-	defaultConfigToml, err := toml.Marshal(getDefaultConfig())
+	defaultConfigToml, err := toml.Marshal(config.GetDefaultBucketConfig())
 	if err != nil {
 		return fmt.Errorf("failed to marshal default bucket config for %q: %w", bucket, err)
 	}

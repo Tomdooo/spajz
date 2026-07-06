@@ -7,11 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/Tomdooo/spajz/internal/buckets"
 	"github.com/Tomdooo/spajz/internal/config"
+	"github.com/Tomdooo/spajz/pkg/hashx"
 )
 
 const (
@@ -153,9 +155,20 @@ func GetWithMetadata(bucket string, filename string) ([]byte, *FileMeta, error) 
 	return file, metadata, nil
 }
 
-func Update() {
-	// TODO: implement
+// NOTE: returns only partial metadata to satisfy HTTP response headers
+func GetPresetVariant(bucket, filename, preset string) ([]byte, *FileMeta, error) {
+	file, err := imageGenerator.CreatePresetVariant(bucket, filename, preset)
+	if err != nil {
+		return nil, nil, err
+	}
+	fileMeta := &FileMeta{
+		ContentType: http.DetectContentType(file),
+		Size:        int64(len(file)),
+		Etag:        hex.EncodeToString(hashx.HashMD5(file)),
+	}
+	return file, fileMeta, nil
 }
+
 func Delete(bucket string, filename string) error {
 	// verify bucket existance
 	if bucketExists, err := buckets.Exists(bucket); err != nil {

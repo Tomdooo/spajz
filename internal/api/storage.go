@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/Tomdooo/spajz/internal/storage"
 	"github.com/labstack/echo/v5"
@@ -49,9 +50,28 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 		return err
 	}
 
-	file, metadata, err := storage.GetWithMetadata(dto.Bucket, dto.Filename)
+	var file []byte
+	var metadata *storage.FileMeta
+	var err error
+
+	if strings.Contains(dto.Filename, "@") { // Preset
+		splittedFilename := strings.Split(dto.Filename, "@")
+		if len(splittedFilename) > 2 {
+			return c.NoContent(http.StatusBadRequest)
+		}
+
+		filename := splittedFilename[0]
+		preset := splittedFilename[1]
+		file, metadata, err = storage.GetPresetVariant(dto.Bucket, filename, preset)
+
+	} else { // Base image
+		file, metadata, err = storage.GetWithMetadata(dto.Bucket, dto.Filename)
+	}
+
 	if err != nil {
-		if errors.Is(err, storage.ErrFileNotExist) || errors.Is(err, storage.ErrBucketNotExist) {
+		if errors.Is(err, storage.ErrPresetNotExist) || errors.Is(err, storage.ErrUnsupportedFormat) {
+			return c.NoContent(http.StatusBadRequest)
+		} else if errors.Is(err, storage.ErrFileNotExist) || errors.Is(err, storage.ErrBucketNotExist) {
 			return c.NoContent(http.StatusNotFound)
 		}
 		return err
@@ -117,7 +137,6 @@ func (h *StorageHandler) S3LikeUpload(c *echo.Context) error {
 		} else if errors.Is(err, storage.ErrFileExist) {
 			return c.NoContent(http.StatusConflict)
 		}
-
 		return err
 	}
 

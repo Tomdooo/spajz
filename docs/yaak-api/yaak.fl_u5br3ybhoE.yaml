@@ -1,21 +1,16 @@
-type: http_request
-model: http_request
-id: rq_6k7zUnRBHa
-createdAt: 2026-07-04T07:44:33.131223
-updatedAt: 2026-07-04T07:46:28.367478
+type: folder
+model: folder
+id: fl_u5br3ybhoE
+createdAt: 2026-07-05T15:57:04.861752
+updatedAt: 2026-07-05T15:57:04.861753
 workspaceId: wk_pUShbrDqVw
-folderId: fl_PoqkF7YLNE
+folderId: fl_nQ4TDyCXdD
 authentication: {}
 authenticationType: null
-body: {}
-bodyType: null
 description: ''
 headers: []
-method: GET
-name: ''
-sortPriority: -1783151073129.0
-url: '{{${[ URL ]}}}'
-urlParameters: []
+name: buckets
+sortPriority: -1783267024860.0
 settingSendCookies:
   enabled: false
   value: true

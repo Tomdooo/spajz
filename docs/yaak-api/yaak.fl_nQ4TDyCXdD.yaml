@@ -1,16 +1,16 @@
 type: folder
 model: folder
-id: fl_PoqkF7YLNE
-createdAt: 2026-07-04T07:44:25.564982
-updatedAt: 2026-07-05T15:56:10.215868
+id: fl_nQ4TDyCXdD
+createdAt: 2026-07-05T09:45:09.872629
+updatedAt: 2026-07-05T09:45:09.872630
 workspaceId: wk_pUShbrDqVw
-folderId: null
+folderId: fl_PoqkF7YLNE
 authentication: {}
 authenticationType: null
 description: ''
 headers: []
-name: API
-sortPriority: -1783151065563.0
+name: S3 Like
+sortPriority: -1783244709871.0
 settingSendCookies:
   enabled: false
   value: true
