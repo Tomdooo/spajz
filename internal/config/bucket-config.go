@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/BurntSushi/toml"
 )
@@ -21,6 +22,7 @@ var bucketConfigManager = new(BucketConfigManager{})
 type BucketConfigMap map[string]*BucketConfig
 type BucketConfigManager struct {
 	configMap BucketConfigMap
+	mu        sync.RWMutex
 }
 
 func GetBucketConfigManager() *BucketConfigManager {
@@ -48,6 +50,9 @@ func (m *BucketConfigManager) LoadBucketConfigs() error {
 	if err != nil {
 		return fmt.Errorf("failed to read buckets directory: %w", err)
 	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	m.configMap = make(BucketConfigMap)
 
@@ -88,11 +93,15 @@ func (m *BucketConfigManager) LoadBucketConfigs() error {
 		m.configMap[dirEntry.Name()] = bucketConfig
 	}
 
-	slog.Info("successfully loaded buckets")
+	count := len(m.configMap)
+	slog.Info("Buckets loaded successfully", "count", count)
 	return nil
 }
 
 func (m *BucketConfigManager) GetConfig(bucket string) (*BucketConfig, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
 	config := m.configMap[bucket]
 	if config == nil {
 		return nil, ErrBucketNotExist
@@ -100,7 +109,15 @@ func (m *BucketConfigManager) GetConfig(bucket string) (*BucketConfig, error) {
 	return config, nil
 }
 
+func (m *BucketConfigManager) BucketsCount() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return len(m.configMap)
+}
+
 func (m *BucketConfigManager) GetImagePreset(bucket, preset string) (*ImagePreset, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	bucketConfig := m.configMap[bucket]
 	if bucketConfig == nil {
 		return nil, ErrBucketNotExist

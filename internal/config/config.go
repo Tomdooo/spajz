@@ -1,30 +1,29 @@
 package config
 
 import (
-	"fmt"
-	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/charmbracelet/log"
 )
 
 var DataDir string
 var TempDir string
 
-func init() {
+func Initialize() {
 	DataDir = os.Getenv("SPAJZ_DATA")
 	if DataDir == "" {
-		fmt.Println("SPAJZ_DATA environment variable not set!")
-		os.Exit(1)
+		log.Fatal("SPAJZ_DATA environment variable not set!")
 	}
 
 	TempDir = filepath.Join(DataDir, ".tmp")
 	err := os.MkdirAll(filepath.Join(TempDir), 0o755)
 	if err != nil {
-		fmt.Println("Error creating data folder.")
-		os.Exit(1)
+		log.Fatal("Error creating data folder.")
 	}
 
 	if err := bucketConfigManager.LoadBucketConfigs(); err != nil {
 		log.Fatal("failed to load bucket configs", "error", err)
 	}
+
 }
