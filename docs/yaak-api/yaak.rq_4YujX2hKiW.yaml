@@ -1,0 +1,54 @@
+type: http_request
+model: http_request
+id: rq_4YujX2hKiW
+createdAt: 2026-07-05T09:43:08.604993
+updatedAt: 2026-07-05T17:00:39.772941
+workspaceId: wk_pUShbrDqVw
+folderId: fl_CmodvtUBkv
+authentication: {}
+authenticationType: null
+body:
+  filePath: /Users/tomdo/Documents/Pixel.png
+bodyType: binary
+description: ''
+headers:
+- enabled: true
+  name: Content-Type
+  value: image/png
+  id: 6t54p4T49u
+- enabled: true
+  name: ''
+  value: ''
+  id: dJuA7BRDdq
+method: PUT
+name: Upload file
+sortPriority: 0.0
+url: ${[ URL ]}/:bucket/:filename
+urlParameters:
+- enabled: true
+  name: :bucket
+  value: yaak
+  id: DWJ4cAY5tr
+- enabled: true
+  name: :filename
+  value: plocha/screenshot.png
+  id: 4q2Y8A9I8g
+- enabled: true
+  name: ''
+  value: ''
+  id: FbD43Z45gX
+settingSendCookies:
+  enabled: false
+  value: true
+settingStoreCookies:
+  enabled: false
+  value: true
+settingValidateCertificates:
+  enabled: false
+  value: true
+settingFollowRedirects:
+  enabled: false
+  value: true
+settingRequestTimeout:
+  enabled: false
+  value: 0

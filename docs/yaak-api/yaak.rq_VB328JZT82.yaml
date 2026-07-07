@@ -1,0 +1,46 @@
+type: http_request
+model: http_request
+id: rq_VB328JZT82
+createdAt: 2026-07-04T14:23:11.152751
+updatedAt: 2026-07-05T17:11:52.889053
+workspaceId: wk_pUShbrDqVw
+folderId: fl_u5br3ybhoE
+authentication: {}
+authenticationType: null
+body:
+  form: []
+  text: |-
+    {
+      "name": "yaak"
+    }
+bodyType: null
+description: ''
+headers: []
+method: PUT
+name: Create bucket
+sortPriority: 0.0
+url: ${[ URL ]}/:bucket
+urlParameters:
+- enabled: true
+  name: :bucket
+  value: bucket
+  id: fEzPJtuI98
+- enabled: true
+  name: ''
+  value: ''
+  id: pDj7dvJBXM
+settingSendCookies:
+  enabled: false
+  value: true
+settingStoreCookies:
+  enabled: false
+  value: true
+settingValidateCertificates:
+  enabled: false
+  value: true
+settingFollowRedirects:
+  enabled: false
+  value: true
+settingRequestTimeout:
+  enabled: false
+  value: 0

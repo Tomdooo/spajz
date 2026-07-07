@@ -1,17 +1,26 @@
 package api
 
-import "github.com/labstack/echo/v5"
+import (
+	"github.com/Tomdooo/spajz/internal/config"
+	"github.com/Tomdooo/spajz/pkg/echox"
+	"github.com/labstack/echo/v5"
+)
 
 func RegisterRoutes(g *echo.Group) {
-	bucketsHandler := NewBucketsHandler()
-	g.PUT("/:bucket", bucketsHandler.Create)
-	g.DELETE("/:bucket", bucketsHandler.Delete)
+	bucketConfigManager := config.GetBucketConfigManager()
 
+	bucketGroup := g.Group("", echox.BucketsAuthMiddleware(config.MasterKey))
+	bucketsHandler := NewBucketsHandler()
+
+	bucketGroup.PUT("/:bucket", bucketsHandler.Create)
+	bucketGroup.DELETE("/:bucket", bucketsHandler.Delete)
+
+	storageGroup := g.Group("", echox.StorageAuthMiddleware(bucketConfigManager))
 	storageHandler := NewStorageHandler()
-	g.PUT("/:bucket/*", storageHandler.S3LikeUpload)
-	g.HEAD("/:bucket/*", storageHandler.Head)
-	g.GET("/:bucket/*", storageHandler.Get)
-	g.DELETE("/:bucket/*", storageHandler.Delete)
+	storageGroup.PUT("/:bucket/*", storageHandler.Upload)
+	storageGroup.HEAD("/:bucket/*", storageHandler.Head)
+	storageGroup.GET("/:bucket/*", storageHandler.Get)
+	storageGroup.DELETE("/:bucket/*", storageHandler.Delete)
 }
 
 // func UploadHandler(w http.ResponseWriter, r *http.Request) {

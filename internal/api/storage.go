@@ -31,8 +31,8 @@ func (h *StorageHandler) Head(c *echo.Context) error {
 
 	metadata, err := storage.GetMetadata(dto.Bucket, dto.Filename)
 	if err != nil {
-		if errors.Is(err, storage.ErrFileNotExist) || errors.Is(err, storage.ErrBucketNotExist) {
-			return c.NoContent(http.StatusNotFound)
+		if errors.Is(err, storage.ErrBucketNotExist) || errors.Is(err, storage.ErrFileNotExist) {
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
 		}
 		return err
 	}
@@ -57,7 +57,7 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 	if strings.Contains(dto.Filename, "@") { // Preset
 		splittedFilename := strings.Split(dto.Filename, "@")
 		if len(splittedFilename) > 2 {
-			return c.NoContent(http.StatusBadRequest)
+			return echo.NewHTTPError(http.StatusBadRequest, "Bad URL format, please use /<bucket>/<file_path>@<preset>.")
 		}
 
 		filename := splittedFilename[0]
@@ -70,9 +70,9 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 
 	if err != nil {
 		if errors.Is(err, storage.ErrPresetNotExist) || errors.Is(err, storage.ErrUnsupportedFormat) {
-			return c.NoContent(http.StatusBadRequest)
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		} else if errors.Is(err, storage.ErrFileNotExist) || errors.Is(err, storage.ErrBucketNotExist) {
-			return c.NoContent(http.StatusNotFound)
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
 		}
 		return err
 	}
@@ -81,50 +81,50 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 	return c.Blob(http.StatusOK, metadata.ContentType, file)
 }
 
-type FormUploadDto struct {
-	Bucket   string `form:"bucket" validate:"required"`
-	Filename string `form:"filename" validate:"required"`
-}
+// type FormUploadDto struct {
+// 	Bucket   string `form:"bucket" validate:"required"`
+// 	Filename string `form:"filename" validate:"required"`
+// }
 
-func (h *StorageHandler) FormUpload(c *echo.Context) error {
-	dto := new(FormUploadDto)
-	if err := c.Bind(dto); err != nil {
-		return err
-	}
-	if err := c.Validate(dto); err != nil {
-		return err
-	}
+// func (h *StorageHandler) FormUpload(c *echo.Context) error {
+// 	dto := new(FormUploadDto)
+// 	if err := c.Bind(dto); err != nil {
+// 		return err
+// 	}
+// 	if err := c.Validate(dto); err != nil {
+// 		return err
+// 	}
 
-	fileHeader, err := c.FormFile("file")
-	if err != nil {
-		return err
-	}
-	fileReader, err := fileHeader.Open()
-	if err != nil {
-		return err
-	}
-	defer fileReader.Close()
+// 	fileHeader, err := c.FormFile("file")
+// 	if err != nil {
+// 		return err
+// 	}
+// 	fileReader, err := fileHeader.Open()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer fileReader.Close()
 
-	metadata, err := storage.Add(dto.Bucket, dto.Filename, fileReader)
-	if err != nil {
-		if errors.Is(err, storage.ErrBucketNotExist) {
-			return c.NoContent(http.StatusBadRequest)
-		} else if errors.Is(err, storage.ErrFileExist) {
-			return c.NoContent(http.StatusConflict)
-		}
+// 	metadata, err := storage.Add(dto.Bucket, dto.Filename, fileReader)
+// 	if err != nil {
+// 		if errors.Is(err, storage.ErrBucketNotExist) {
+// 			return c.NoContent(http.StatusBadRequest)
+// 		} else if errors.Is(err, storage.ErrFileExist) {
+// 			return c.NoContent(http.StatusConflict)
+// 		}
 
-		return err
-	}
+// 		return err
+// 	}
 
-	setFileEtagHeader(c, metadata)
-	return c.NoContent(http.StatusOK)
-}
+// 	setFileEtagHeader(c, metadata)
+// 	return c.NoContent(http.StatusOK)
+// }
 
-func (h *StorageHandler) S3LikeUpload(c *echo.Context) error {
+func (h *StorageHandler) Upload(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	filename := c.Param("*")
 	if bucket == "" || filename == "" {
-		return c.String(http.StatusBadRequest, "Missing bucket or object key")
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing bucket or object key")
 	}
 
 	fileReader := c.Request().Body
@@ -133,9 +133,9 @@ func (h *StorageHandler) S3LikeUpload(c *echo.Context) error {
 	metadata, err := storage.Add(bucket, filename, fileReader)
 	if err != nil {
 		if errors.Is(err, storage.ErrBucketNotExist) {
-			return c.NoContent(http.StatusBadRequest)
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 		} else if errors.Is(err, storage.ErrFileExist) {
-			return c.NoContent(http.StatusConflict)
+			return echo.NewHTTPError(http.StatusConflict, err.Error())
 		}
 		return err
 	}
@@ -155,7 +155,7 @@ func (h *StorageHandler) Delete(c *echo.Context) error {
 
 	if err := storage.Delete(dto.Bucket, dto.Filename); err != nil {
 		if errors.Is(err, storage.ErrBucketNotExist) {
-			return c.NoContent(http.StatusNotFound)
+			return echo.NewHTTPError(http.StatusNotFound, err.Error())
 		}
 		return err
 	}

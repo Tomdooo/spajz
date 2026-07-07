@@ -1,13 +1,16 @@
 # ==========================================
-# HLAVNÍ DEFAULT CONFIG BUCKETU
+# MAIN BUCKET CONFIG
 # ==========================================
 [bucket]
-name = "kamosuv-web"
-is_public = true
-max_file_size_bytes = 52428800 # 50 MB
+# name = "kamosuv-web"
+# is_public = true
+# max_file_size_bytes = 52428800 # 50 MB
+allow_public_upload = false
+allow_public_reading = false
+allow_public_delete = false
 
 # ==========================================
-# CACHE & LIMIT ENGINE (Hlídání disku)
+# CACHE & LIMIT ENGINE
 # ==========================================
 [cache]
 enabled = true
@@ -15,14 +18,14 @@ max_size_gb = 5.0              # Tvůj limit pro LRU na disku [cite: 36, 755]
 clean_batch_size = 50          # Kolik souborů smazat naráz při přetečení [cite: 860]
 
 # ==========================================
-# IMAGE VARIANTY (PRESETS)
+# IMAGE PRESETS
 # ==========================================
 [[presets.image]]
 name = "thumb"
 width = 300
 height = 300
 format = "webp"
-enlarge = false                # Bezpečnost: Neupscalovat malé ikony [cite: 208]
+enlarge = false
 quality = 80
 
 [[presets.image]]
@@ -33,7 +36,7 @@ enlarge = false
 quality = 85
 
 # ==========================================
-# VIDEO VARIANTY (Budoucí rozšíření)
+# VIDEO PRESETS
 # ==========================================
 [[presets.video]]
 name = "mobile_mp4"
@@ -41,3 +44,20 @@ codec = "h264"
 resolution = "720p"
 fps = 30
 bitrate_kbps = 1500
+
+# ==========================================
+# API KEYS
+# ==========================================
+[[bucket.api_keys]]
+name = "Strapi CMS Main"
+key = "spajz_secret_strapi_prod_abc123"
+allow_reading = true
+allow_upload = true
+allow_delete = true
+
+[[bucket.api_keys]]
+name = "Kamosuv Import Script"
+key = "spajz_secret_import_worker_xyz789"
+allow_reading = true
+allow_upload = true
+allow_delete = true

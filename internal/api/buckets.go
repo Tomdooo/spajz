@@ -30,10 +30,12 @@ func (h *BucketsHandler) Create(c *echo.Context) error {
 	// create bucket
 	if err := buckets.Create(dto.Bucket); err != nil {
 		if errors.Is(err, buckets.ErrAlreadyExists) {
-			return c.NoContent(http.StatusConflict)
+			return echo.NewHTTPError(http.StatusConflict, "Bucket already exists.")
 		}
 		return err
 	}
+	header := c.Response().Header()
+	header.Set("Location", "/"+dto.Bucket)
 	return c.NoContent(http.StatusOK)
 }
 
@@ -49,6 +51,9 @@ func (h *BucketsHandler) Delete(c *echo.Context) error {
 
 	// delete
 	if err := buckets.Delete(dto.Bucket); err != nil {
+		if errors.Is(err, buckets.ErrBucketNotExist) {
+			return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+		}
 		return err
 	}
 

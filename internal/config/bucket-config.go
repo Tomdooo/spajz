@@ -31,8 +31,20 @@ func GetBucketConfigManager() *BucketConfigManager {
 }
 
 func (m *BucketConfigManager) GetDefaultConfig() *BucketConfig {
+	apiKeys := make(ApiKeys, 0)
+	apiKeys = append(apiKeys, ApiKey{
+		Name:         "default",
+		Key:          "spajz-default-api-key",
+		AllowReading: true,
+		AllowUpload:  true,
+		AllowDelete:  true,
+	})
 	bucketSection := BucketSection{
-		IsPublic: true,
+		// IsPublic: true,
+		AllowPublicReading: true,
+		AllowPublicUpload:  false,
+		AllowPublicDelete:  false,
+		ApiKeys:            apiKeys,
 	}
 	cacheSection := CacheSection{
 		Enabled:        true,
@@ -114,15 +126,17 @@ func (m *BucketConfigManager) loadBucket(bucket string) error {
 	return nil
 }
 
-func (m *BucketConfigManager) GetConfig(bucket string) (*BucketConfig, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
+func (m *BucketConfigManager) getConfig(bucket string) (*BucketConfig, error) {
 	config := m.configMap[bucket]
 	if config == nil {
 		return nil, ErrBucketNotExist
 	}
 	return config, nil
+}
+func (m *BucketConfigManager) GetConfig(bucket string) (*BucketConfig, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.getConfig(bucket)
 }
 
 func (m *BucketConfigManager) BucketsCount() int {
@@ -134,13 +148,30 @@ func (m *BucketConfigManager) BucketsCount() int {
 func (m *BucketConfigManager) GetImagePreset(bucket, preset string) (*ImagePreset, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	bucketConfig := m.configMap[bucket]
-	if bucketConfig == nil {
-		return nil, ErrBucketNotExist
+	bucketConfig, err := m.getConfig(bucket)
+	if err != nil {
+		return nil, err
 	}
 	presetConfig := bucketConfig.Presets.Image[preset]
 	if presetConfig == nil {
 		return nil, ErrPresetNotExist
 	}
 	return presetConfig, nil
+}
+
+func (m *BucketConfigManager) VerifyApiKey(bucket, key string) (valid bool, apiKeyConfig *ApiKey, err error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	bucketConfig, err := m.getConfig(bucket)
+	if err != nil {
+		return false, nil, err
+	}
+	var validApiKey ApiKey
+	for _, apiKey := range bucketConfig.Bucket.ApiKeys {
+		if apiKey.Key == key {
+			validApiKey = apiKey
+			break
+		}
+	}
+	return true, &validApiKey, nil
 }

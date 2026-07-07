@@ -10,6 +10,7 @@ import (
 )
 
 var ErrAlreadyExists = errors.New("Bucket already exists.")
+var ErrBucketNotExist = errors.New("Bucket does not exist.")
 
 var bucketConfigManager = config.GetBucketConfigManager()
 
@@ -43,6 +44,10 @@ func Create(bucket string) error {
 	return nil
 }
 
+func Get() {
+	// TODO: implement
+}
+
 func Exists(bucket string) (bool, error) {
 	configFile := config.GetBucketConfigPath(bucket)
 	_, err := os.Stat(configFile)
@@ -57,7 +62,15 @@ func Exists(bucket string) (bool, error) {
 
 func Delete(bucket string) error {
 	bucketPath := config.GetBucketDir(bucket)
-	err := os.RemoveAll(bucketPath)
+	_, err := os.Stat(bucketPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ErrBucketNotExist
+		}
+		return err
+	}
+	// TODO: if bucket is not empty, throw 409 BucketNotEmpty
+	err = os.RemoveAll(bucketPath)
 	if err != nil {
 		return err
 	}

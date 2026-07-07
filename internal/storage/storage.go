@@ -23,9 +23,9 @@ const (
 )
 
 var (
-	ErrBucketNotExist = errors.New("Bucket doesn't exist.")
+	ErrBucketNotExist = errors.New("Bucket does not exist.")
 	ErrFileExist      = errors.New("File already exists.")
-	ErrFileNotExist   = errors.New("File not exists.")
+	ErrFileNotExist   = errors.New("File does not exist.")
 )
 
 func Add(bucket string, filename string, r io.Reader) (*FileMeta, error) {

@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-var ErrPresetNotExist = errors.New("Preset not exist.")
+var ErrPresetNotExist = errors.New("Preset does not exist.")
 var ErrUnsupportedFormat = errors.New("Unsupported format.")
 
 var imageGenerator = NewImageGenerator()

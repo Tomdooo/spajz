@@ -10,9 +10,23 @@ type BucketConfig struct {
 }
 
 type BucketSection struct {
-	IsPublic bool `toml:"is_public"`
+	// IsPublic bool `toml:"is_public"`
 	// MaxFileSize int    `toml:"max_file_size_bytes"`
+	AllowPublicUpload  bool `toml:"allow_public_upload"`
+	AllowPublicReading bool `toml:"allow_public_reading"`
+	AllowPublicDelete  bool `toml:"allow_public_delete"`
+	// TODO: AllowPublicDelete
+	ApiKeys ApiKeys `toml:"api_keys"`
 }
+
+type ApiKey struct {
+	Name         string `toml:"name"`
+	Key          string `toml:"key"`
+	AllowUpload  bool   `toml:"allow_upload"`
+	AllowReading bool   `toml:"allow_reading"`
+	AllowDelete  bool   `toml:"allow_delete"`
+}
+type ApiKeys = []ApiKey
 
 type CacheSection struct {
 	Enabled        bool    `toml:"enabled"`
@@ -47,11 +61,11 @@ type VideoPreset struct {
 // NOTE: does not uses mutex lock
 func (c *BucketConfig) ProcessPresets() {
 	c.Presets.Image = make(ImagePresetMap)
-		for _, imagePreset := range c.Presets.RawImagePresets {
-			c.Presets.Image[imagePreset.Name] = &imagePreset
-		}
-		c.Presets.Video = make(VideoPresetMap)
-		for _, videoPreset := range c.Presets.RawVideoPresets {
-			c.Presets.Video[videoPreset.Name] = &videoPreset
-		}
+	for _, imagePreset := range c.Presets.RawImagePresets {
+		c.Presets.Image[imagePreset.Name] = &imagePreset
+	}
+	c.Presets.Video = make(VideoPresetMap)
+	for _, videoPreset := range c.Presets.RawVideoPresets {
+		c.Presets.Video[videoPreset.Name] = &videoPreset
+	}
 }

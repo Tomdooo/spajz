@@ -1,0 +1,45 @@
+type: http_request
+model: http_request
+id: rq_47rD2C7XZk
+createdAt: 2026-07-05T16:36:15.354949
+updatedAt: 2026-07-05T17:00:21.155543
+workspaceId: wk_pUShbrDqVw
+folderId: fl_CmodvtUBkv
+authentication: {}
+authenticationType: null
+body: {}
+bodyType: null
+description: ''
+headers: []
+method: HEAD
+name: Head file
+sortPriority: 1000.001
+url: ${[ URL ]}/:bucket/:filename
+urlParameters:
+- enabled: true
+  name: :bucket
+  value: yaak
+  id: DWJ4cAY5tr
+- enabled: true
+  name: :filename
+  value: plocha/screenshot.png
+  id: 4q2Y8A9I8g
+- enabled: true
+  name: ''
+  value: ''
+  id: W0SinaD8nM
+settingSendCookies:
+  enabled: false
+  value: true
+settingStoreCookies:
+  enabled: false
+  value: true
+settingValidateCertificates:
+  enabled: false
+  value: true
+settingFollowRedirects:
+  enabled: false
+  value: true
+settingRequestTimeout:
+  enabled: false
+  value: 0
