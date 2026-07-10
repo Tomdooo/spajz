@@ -30,9 +30,4 @@ func Initialize() {
 		log.Fatal("Error creating data folder.")
 	}
 
-	// Load buckets
-	if err := bucketConfigManager.LoadBucketConfigs(); err != nil {
-		log.Fatal("failed to load bucket configs", "error", err)
-	}
-
 }

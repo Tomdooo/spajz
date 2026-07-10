@@ -7,6 +7,7 @@ import (
 
 	"github.com/Tomdooo/spajz/internal/api"
 	"github.com/Tomdooo/spajz/internal/config"
+	"github.com/Tomdooo/spajz/internal/db"
 	"github.com/Tomdooo/spajz/pkg/echox"
 	"github.com/charmbracelet/log"
 	"github.com/labstack/echo/v5"
@@ -29,6 +30,18 @@ func main() {
 	printLogo()
 	slog.Info("Špajz is warming up", "version", Version)
 
+	config.Initialize()
+
+	// Init modules
+	bucketConfigManager := config.GetBucketConfigManager()
+	if err := bucketConfigManager.LoadBucketConfigs(); err != nil {
+		log.Fatal("failed to load bucket configs", "error", err)
+	}
+	databaseManager := db.GetDatabaseManager()
+	if err := databaseManager.InitBucketDatabases(); err != nil {
+		log.Fatal("failed to initialize bucket databases", "error", err)
+	}
+
 	// ECHO
 	e := echo.New()
 
@@ -39,8 +52,6 @@ func main() {
 	e.Use(middleware.RequestLogger())
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit(2_097_152)) // 2 MB
-
-	config.Initialize()
 
 	g := e.Group("")
 	api.RegisterRoutes(g)

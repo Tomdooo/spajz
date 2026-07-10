@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
@@ -18,7 +20,8 @@ var (
 	ErrPresetNotExist = errors.New("Preset not exist.")
 )
 
-var bucketConfigManager = new(BucketConfigManager{})
+var bucketConfigManager *BucketConfigManager
+var once sync.Once
 
 type BucketConfigMap map[string]*BucketConfig
 type BucketConfigManager struct {
@@ -27,6 +30,9 @@ type BucketConfigManager struct {
 }
 
 func GetBucketConfigManager() *BucketConfigManager {
+	once.Do(func() {
+		bucketConfigManager = new(BucketConfigManager{})
+	})
 	return bucketConfigManager
 }
 
@@ -58,6 +64,7 @@ func (m *BucketConfigManager) GetDefaultConfig() *BucketConfig {
 }
 
 func (m *BucketConfigManager) LoadBucketConfigs() error {
+	fmt.Println(DataDir)
 	dirEntries, err := os.ReadDir(DataDir)
 	if err != nil {
 		return fmt.Errorf("failed to read buckets directory: %w", err)
@@ -72,20 +79,6 @@ func (m *BucketConfigManager) LoadBucketConfigs() error {
 		if !dirEntry.IsDir() || strings.HasPrefix(dirEntry.Name(), ".") {
 			continue
 		}
-
-		// bucketConfigPath := GetBucketConfigPath(dirEntry.Name())
-
-		// var bucketConfig *BucketConfig
-		// _, err := toml.DecodeFile(bucketConfigPath, &bucketConfig)
-		// if err != nil {
-		// 	if os.IsNotExist(err) {
-		// 		slog.Debug("folder is not bucket", "folder", dirEntry.Name())
-		// 		continue
-		// 	}
-		// 	return fmt.Errorf("failed to read bucket config in folder '%s': %w", dirEntry.Name(), err)
-		// }
-
-		// bucketConfig.ProcessPresets()
 
 		err := m.loadBucket(dirEntry.Name())
 		if err != nil {
@@ -120,7 +113,8 @@ func (m *BucketConfigManager) loadBucket(bucket string) error {
 		return fmt.Errorf("failed to decode bucket config for '%s': %w", bucket, err)
 	}
 
-	bucketConfig.ProcessPresets()
+	bucketConfig.processPresets()
+
 	m.configMap[bucket] = bucketConfig
 
 	return nil
@@ -174,4 +168,37 @@ func (m *BucketConfigManager) VerifyApiKey(bucket, key string) (valid bool, apiK
 		}
 	}
 	return true, &validApiKey, nil
+}
+
+func (m *BucketConfigManager) GetBucketList() []string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return slices.Collect(maps.Keys(m.configMap))
+}
+
+func GetBucketList() ([]string, error) {
+	dirEntries, err := os.ReadDir(DataDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read buckets directory: %w", err)
+	}
+
+	buckets := []string{}
+	for _, dirEntry := range dirEntries {
+		if !dirEntry.IsDir() || strings.HasPrefix(dirEntry.Name(), ".") {
+			continue
+		}
+
+		configPath := GetBucketConfigPath(dirEntry.Name())
+		_, err := os.Stat(configPath)
+		if err != nil {
+			if !os.IsNotExist(err) {
+				// TODO: better error handling
+				slog.Error("failed to read file stats to verify it's existance", "filePath", configPath, "error", err)
+			}
+			continue
+		}
+
+		buckets = append(buckets, dirEntry.Name())
+	}
+	return buckets, nil
 }

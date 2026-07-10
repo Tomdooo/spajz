@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Tomdooo/spajz/internal/models"
 	"github.com/Tomdooo/spajz/internal/storage"
 	"github.com/labstack/echo/v5"
 )
@@ -16,8 +17,8 @@ func NewStorageHandler() *StorageHandler {
 }
 
 type S3LikeDto struct {
-	Bucket   string `param:"bucket" validate:"required"`
-	Filename string `param:"*" validate:"required"`
+	Bucket    string `param:"bucket" validate:"required"`
+	ObjectKey string `param:"*" validate:"required"`
 }
 
 func (h *StorageHandler) Head(c *echo.Context) error {
@@ -28,8 +29,9 @@ func (h *StorageHandler) Head(c *echo.Context) error {
 	if err := c.Validate(dto); err != nil {
 		return err
 	}
+	fileContext := models.NewFileRequestContext(dto.Bucket, dto.ObjectKey, storage.GetObjectHash(dto.ObjectKey))
 
-	metadata, err := storage.GetMetadata(dto.Bucket, dto.Filename)
+	metadata, err := storage.GetMetadata(fileContext)
 	if err != nil {
 		if errors.Is(err, storage.ErrBucketNotExist) || errors.Is(err, storage.ErrFileNotExist) {
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())
@@ -54,18 +56,29 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 	var metadata *storage.FileMeta
 	var err error
 
-	if strings.Contains(dto.Filename, "@") { // Preset
-		splittedFilename := strings.Split(dto.Filename, "@")
-		if len(splittedFilename) > 2 {
+	if strings.Contains(dto.ObjectKey, "@") { // Preset
+		ctx := c.Request().Context()
+		splittedObjectKey := strings.Split(dto.ObjectKey, "@")
+		if len(splittedObjectKey) > 2 {
 			return echo.NewHTTPError(http.StatusBadRequest, "Bad URL format, please use /<bucket>/<file_path>@<preset>.")
 		}
+		objectKey := splittedObjectKey[0]
+		preset := splittedObjectKey[1]
 
-		filename := splittedFilename[0]
-		preset := splittedFilename[1]
-		file, metadata, err = storage.GetPresetVariant(dto.Bucket, filename, preset)
+		fileContext := models.NewFileRequestContext(dto.Bucket, objectKey, storage.GetObjectHash(objectKey))
+
+		var isCacheHit bool
+		file, metadata, isCacheHit, err = storage.GetPresetVariant(ctx, fileContext, preset)
+
+		if isCacheHit {
+			c.Response().Header().Set("Cache", "HIT") // TODO: verify format of the header
+		} else {
+			c.Response().Header().Set("Cache", "MISS")
+		}
 
 	} else { // Base image
-		file, metadata, err = storage.GetWithMetadata(dto.Bucket, dto.Filename)
+		fileContext := models.NewFileRequestContext(dto.Bucket, dto.ObjectKey, storage.GetObjectHash(dto.ObjectKey))
+		file, metadata, err = storage.GetWithMetadata(fileContext)
 	}
 
 	if err != nil {
@@ -122,15 +135,16 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 
 func (h *StorageHandler) Upload(c *echo.Context) error {
 	bucket := c.Param("bucket")
-	filename := c.Param("*")
-	if bucket == "" || filename == "" {
+	objectKey := c.Param("*")
+	if bucket == "" || objectKey == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "Missing bucket or object key")
 	}
 
 	fileReader := c.Request().Body
 	defer fileReader.Close()
 
-	metadata, err := storage.Add(bucket, filename, fileReader)
+	fileContext := models.NewFileRequestContext(bucket, objectKey, storage.GetObjectHash(objectKey))
+	metadata, err := storage.Add(fileContext, fileReader)
 	if err != nil {
 		if errors.Is(err, storage.ErrBucketNotExist) {
 			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
@@ -153,7 +167,8 @@ func (h *StorageHandler) Delete(c *echo.Context) error {
 		return err
 	}
 
-	if err := storage.Delete(dto.Bucket, dto.Filename); err != nil {
+	fileContext := models.NewFileRequestContext(dto.Bucket, dto.ObjectKey, storage.GetObjectHash(dto.ObjectKey))
+	if err := storage.Delete(fileContext); err != nil {
 		if errors.Is(err, storage.ErrBucketNotExist) {
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())
 		}

@@ -15,7 +15,7 @@ func getStorageDir(bucket string) string {
 	return filepath.Join(config.GetBucketDir(bucket), STORAGE_DIR)
 }
 
-func getFilenameHash(filename string) string {
+func GetObjectHash(filename string) string {
 	hash := hex.EncodeToString(hashx.HashSHA256([]byte(filename)))
 	return hash
 }
