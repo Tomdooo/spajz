@@ -161,7 +161,7 @@ func GetWithMetadata(fileContext *models.FileRequestContext) ([]byte, *FileMeta,
 }
 
 // NOTE: returns only partial metadata to satisfy HTTP response headers
-func GetPresetVariant(ctx context.Context, fileContext *models.FileRequestContext, preset string) ([]byte, *FileMeta, bool, error) {
+func GetPresetVariant(ctx context.Context, fileContext *models.FileRequestContext, preset string) (file []byte, fileMeta *FileMeta, isCacheHit bool, err error) {
 	// get image preset and work with that for ensured consistency
 	presetConfig, err := bucketConfigManager.GetImagePreset(fileContext.Bucket, preset)
 	if err != nil {
@@ -177,8 +177,6 @@ func GetPresetVariant(ctx context.Context, fileContext *models.FileRequestContex
 			return nil, nil, false, ErrBucketNotExist
 		}
 	}
-	fmt.Println(cached.PresetConfigHash)
-	fmt.Println(presetConfig.ConfigHash)
 	if cached != nil && cached.PresetConfigHash == presetConfig.ConfigHash {
 		fileMeta := &FileMeta{
 			ContentType: cached.MimeType,
@@ -200,11 +198,11 @@ func GetPresetVariant(ctx context.Context, fileContext *models.FileRequestContex
 	}
 
 	// generate image variant
-	file, err := imageGenerator.CreatePresetVariant(fileContext, presetConfig)
+	file, err = imageGenerator.CreatePresetVariant(fileContext, presetConfig)
 	if err != nil {
 		return nil, nil, false, err
 	}
-	fileMeta := &FileMeta{
+	fileMeta = &FileMeta{
 		ContentType: http.DetectContentType(file), // ?: Maybe do not detect, but hardcode
 		Size:        int64(len(file)),
 		Etag:        hex.EncodeToString(hashx.HashMD5(file)),
@@ -214,9 +212,10 @@ func GetPresetVariant(ctx context.Context, fileContext *models.FileRequestContex
 	go func(ctx context.Context, fileContext *models.FileRequestContext, presetConfig *config.ImagePreset, fileMeta *FileMeta, data []byte) {
 		err := cacheManager.SaveFile(ctx, fileContext, presetConfig, fileMeta.ContentType, data)
 		if err != nil {
-			slog.Error("Failed to save file into database cache.",
+			slog.Error("Failed to save image variant into cache.",
 				"bucket", fileContext.Bucket,
 				"objectKey", fileContext.ObjectKey,
+				"preset", presetConfig.Name,
 				"preset", presetConfig.Name,
 				"error", err)
 		}
@@ -228,7 +227,20 @@ func GetPresetVariant(ctx context.Context, fileContext *models.FileRequestContex
 	return file, fileMeta, false, nil
 }
 
-func Delete(fileConfig *models.FileRequestContext) error {
+func Exists(fileConfig *models.FileRequestContext) (bool, error) {
+	fileDir := getFileDir(fileConfig.Bucket, fileConfig.ObjectHash)
+	metaFilePath := filepath.Join(fileDir, METADATA_FILENAME)
+	_, err := os.Stat(metaFilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func Delete(ctx context.Context, fileConfig *models.FileRequestContext) error {
 	// verify bucket existance
 	if bucketExists, err := buckets.Exists(fileConfig.Bucket); err != nil {
 		return fmt.Errorf("Couldn't verify, if %q bucket exists: %w", fileConfig.Bucket, err)
@@ -236,7 +248,17 @@ func Delete(fileConfig *models.FileRequestContext) error {
 		return ErrBucketNotExist
 	}
 
-	// TODO: verify file existance
+	// verify file existance
+	exists, err := Exists(fileConfig)
+	if err != nil {
+		return fmt.Errorf("Failed to verify file existance: %w", err)
+	}
+	if !exists {
+		return ErrFileNotExist
+	}
+
+	// cache Delete
+	cacheManager.DeleteAllFiles(ctx, fileConfig)
 
 	// delete folder
 	fileDir := getFileDir(fileConfig.Bucket, fileConfig.ObjectHash)

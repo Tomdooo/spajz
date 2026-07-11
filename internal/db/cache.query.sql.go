@@ -24,15 +24,59 @@ func (q *Queries) DeleteCacheItem(ctx context.Context, arg DeleteCacheItemParams
 	return err
 }
 
+const deleteCachedByObjectHash = `-- name: DeleteCachedByObjectHash :exec
+DELETE FROM cache_index
+WHERE file_hash = ?
+`
+
+func (q *Queries) DeleteCachedByObjectHash(ctx context.Context, fileHash string) error {
+	_, err := q.db.ExecContext(ctx, deleteCachedByObjectHash, fileHash)
+	return err
+}
+
+const deleteOldestCachedWithBlob = `-- name: DeleteOldestCachedWithBlob :many
+DELETE FROM cache_index
+WHERE (file_hash, preset) IN (
+    SELECT file_hash, preset
+    FROM cache_index
+    ORDER BY last_accessed_at ASC
+    LIMIT ?
+)
+RETURNING file_hash
+`
+
+func (q *Queries) DeleteOldestCachedWithBlob(ctx context.Context, limit int64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, deleteOldestCachedWithBlob, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var file_hash string
+		if err := rows.Scan(&file_hash); err != nil {
+			return nil, err
+		}
+		items = append(items, file_hash)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCacheSize = `-- name: GetCacheSize :one
-SELECT COALESCE(SUM(file_size), 0) FROM cache_index
+SELECT COALESCE(SUM(file_size), 0) as size FROM cache_index
 `
 
 func (q *Queries) GetCacheSize(ctx context.Context) (interface{}, error) {
 	row := q.db.QueryRowContext(ctx, getCacheSize)
-	var coalesce interface{}
-	err := row.Scan(&coalesce)
-	return coalesce, err
+	var size interface{}
+	err := row.Scan(&size)
+	return size, err
 }
 
 const getCached = `-- name: GetCached :one
@@ -68,29 +112,40 @@ func (q *Queries) GetCached(ctx context.Context, arg GetCachedParams) (GetCached
 	return i, err
 }
 
-const getOldestCacheItem = `-- name: GetOldestCacheItem :many
+const getInDatabaseCacheSize = `-- name: GetInDatabaseCacheSize :one
+SELECT COALESCE(SUM(file_size), 0) as size FROM cache_index WHERE is_stored_on_disk = 0
+`
+
+func (q *Queries) GetInDatabaseCacheSize(ctx context.Context) (interface{}, error) {
+	row := q.db.QueryRowContext(ctx, getInDatabaseCacheSize)
+	var size interface{}
+	err := row.Scan(&size)
+	return size, err
+}
+
+const getOldestCacheItems = `-- name: GetOldestCacheItems :many
 SELECT file_hash, preset, file_size, is_stored_on_disk
 FROM cache_index
 ORDER BY last_accessed_at ASC
 LIMIT ?
 `
 
-type GetOldestCacheItemRow struct {
+type GetOldestCacheItemsRow struct {
 	FileHash       string
 	Preset         string
 	FileSize       int64
 	IsStoredOnDisk int64
 }
 
-func (q *Queries) GetOldestCacheItem(ctx context.Context, limit int64) ([]GetOldestCacheItemRow, error) {
-	rows, err := q.db.QueryContext(ctx, getOldestCacheItem, limit)
+func (q *Queries) GetOldestCacheItems(ctx context.Context, limit int64) ([]GetOldestCacheItemsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getOldestCacheItems, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetOldestCacheItemRow
+	var items []GetOldestCacheItemsRow
 	for rows.Next() {
-		var i GetOldestCacheItemRow
+		var i GetOldestCacheItemsRow
 		if err := rows.Scan(
 			&i.FileHash,
 			&i.Preset,

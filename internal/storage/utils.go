@@ -15,14 +15,14 @@ func getStorageDir(bucket string) string {
 	return filepath.Join(config.GetBucketDir(bucket), STORAGE_DIR)
 }
 
-func GetObjectHash(filename string) string {
-	hash := hex.EncodeToString(hashx.HashSHA256([]byte(filename)))
+func GetObjectHash(objectKey string) string {
+	hash := hex.EncodeToString(hashx.HashSHA256([]byte(objectKey)))
 	return hash
 }
 
-func getFileDir(bucket string, hash string) string {
+func getFileDir(bucket string, objectHash string) string {
 	storageDir := getStorageDir(bucket)
-	return filepath.Join(storageDir, hash[:2], hash[2:4], hash)
+	return filepath.Join(storageDir, objectHash[:2], objectHash[2:4], objectHash)
 }
 
 func detectContentType(filePath string) (string, error) {

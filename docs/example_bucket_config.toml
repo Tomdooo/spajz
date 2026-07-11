@@ -13,7 +13,7 @@ allow_public_delete = false
 # CACHE & LIMIT ENGINE
 # ==========================================
 [cache]
-enabled = true
+#enabled = true
 max_size_gb = 5.0              # Tvůj limit pro LRU na disku [cite: 36, 755]
 clean_batch_size = 50          # Kolik souborů smazat naráz při přetečení [cite: 860]
 

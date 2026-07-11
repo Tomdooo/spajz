@@ -46,14 +46,13 @@ func (m *BucketConfigManager) GetDefaultConfig() *BucketConfig {
 		AllowDelete:  true,
 	})
 	bucketSection := BucketSection{
-		// IsPublic: true,
 		AllowPublicReading: true,
 		AllowPublicUpload:  false,
 		AllowPublicDelete:  false,
 		ApiKeys:            apiKeys,
 	}
 	cacheSection := CacheSection{
-		Enabled:        true,
+		// Enabled:        true,
 		MaxSizeGB:      1,
 		CleanBatchSize: 20,
 	}
@@ -112,6 +111,8 @@ func (m *BucketConfigManager) loadBucket(bucket string) error {
 		}
 		return fmt.Errorf("failed to decode bucket config for '%s': %w", bucket, err)
 	}
+
+	bucketConfig.Cache.MaxSizeBytes = int64(bucketConfig.Cache.MaxSizeGB) * 1024 * 1024 * 1024
 
 	bucketConfig.processPresets()
 

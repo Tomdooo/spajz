@@ -19,7 +19,6 @@ type BucketConfig struct {
 }
 
 type BucketSection struct {
-	// IsPublic bool `toml:"is_public"`
 	// MaxFileSize int    `toml:"max_file_size_bytes"`
 	AllowPublicUpload  bool    `toml:"allow_public_upload"`
 	AllowPublicReading bool    `toml:"allow_public_reading"`
@@ -37,9 +36,10 @@ type ApiKey struct {
 type ApiKeys = []ApiKey
 
 type CacheSection struct {
-	Enabled        bool    `toml:"enabled"`
+	// Enabled        bool    `toml:"enabled"`
 	MaxSizeGB      float64 `toml:"max_size_gb"`
-	CleanBatchSize int     `toml:"clean_batch_size"`
+	MaxSizeBytes   int64
+	CleanBatchSize int `toml:"clean_batch_size"`
 }
 
 type PresetsSection struct {

@@ -19,14 +19,31 @@ ON CONFLICT(file_hash, preset) DO UPDATE SET
     last_accessed_at = CURRENT_TIMESTAMP;
 
 -- name: GetCacheSize :one
-SELECT COALESCE(SUM(file_size), 0) FROM cache_index;
+SELECT COALESCE(SUM(file_size), 0) as size FROM cache_index;
 
--- name: GetOldestCacheItem :many
+-- name: GetInDatabaseCacheSize :one
+SELECT COALESCE(SUM(file_size), 0) as size FROM cache_index WHERE is_stored_on_disk = 0;
+
+-- name: GetOldestCacheItems :many
 SELECT file_hash, preset, file_size, is_stored_on_disk
 FROM cache_index
 ORDER BY last_accessed_at ASC
 LIMIT ?;
 
+-- name: DeleteOldestCachedWithBlob :many
+DELETE FROM cache_index
+WHERE (file_hash, preset) IN (
+    SELECT file_hash, preset
+    FROM cache_index
+    ORDER BY last_accessed_at ASC
+    LIMIT ?
+)
+RETURNING file_hash;
+
 -- name: DeleteCacheItem :exec
 DELETE FROM cache_index
 WHERE file_hash = ? AND preset = ?;
+
+-- name: DeleteCachedByObjectHash :exec
+DELETE FROM cache_index
+WHERE file_hash = ?;

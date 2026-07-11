@@ -167,9 +167,10 @@ func (h *StorageHandler) Delete(c *echo.Context) error {
 		return err
 	}
 
+	ctx := c.Request().Context()
 	fileContext := models.NewFileRequestContext(dto.Bucket, dto.ObjectKey, storage.GetObjectHash(dto.ObjectKey))
-	if err := storage.Delete(fileContext); err != nil {
-		if errors.Is(err, storage.ErrBucketNotExist) {
+	if err := storage.Delete(ctx, fileContext); err != nil {
+		if errors.Is(err, storage.ErrBucketNotExist) || errors.Is(err, storage.ErrFileNotExist) {
 			return echo.NewHTTPError(http.StatusNotFound, err.Error())
 		}
 		return err
