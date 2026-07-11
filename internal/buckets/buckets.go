@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/Tomdooo/spajz/internal/config"
@@ -44,8 +45,27 @@ func Create(bucket string) error {
 	return nil
 }
 
-func Get() {
-	// TODO: implement
+type BucketEntry struct {
+	Name      string    `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func Get() ([]BucketEntry, error) {
+	bucketList := bucketConfigManager.GetBucketList()
+	bucketEntries := []BucketEntry{}
+	for _, bucket := range bucketList {
+		createdAt, err := bucketConfigManager.GetCreatedAt(bucket)
+		if err != nil {
+			return nil, fmt.Errorf("failed to obtain created at info of bucket %q: %w", bucket, err)
+		}
+
+		bucketEntry := BucketEntry{
+			Name:      bucket,
+			CreatedAt: createdAt,
+		}
+		bucketEntries = append(bucketEntries, bucketEntry)
+	}
+	return bucketEntries, nil
 }
 
 func Exists(bucket string) (bool, error) {

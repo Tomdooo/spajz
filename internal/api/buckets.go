@@ -59,3 +59,22 @@ func (h *BucketsHandler) Delete(c *echo.Context) error {
 
 	return c.NoContent(http.StatusNoContent)
 }
+
+type GetResponseBody struct {
+	Buckets []buckets.BucketEntry `json:"buckets"`
+}
+
+func (h *BucketsHandler) Get(c *echo.Context) error {
+	bucketEntries, err := buckets.Get()
+	if err != nil {
+		if errors.Is(err, buckets.ErrBucketNotExist) {
+			return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+		}
+		return err
+	}
+
+	resBody := GetResponseBody{
+		Buckets: bucketEntries,
+	}
+	return c.JSON(http.StatusOK, resBody)
+}

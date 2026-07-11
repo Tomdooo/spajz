@@ -12,6 +12,7 @@ func RegisterRoutes(g *echo.Group) {
 	bucketGroup := g.Group("", echox.BucketsAuthMiddleware(config.MasterKey))
 	bucketsHandler := NewBucketsHandler()
 
+	bucketGroup.GET("/", bucketsHandler.Get)
 	bucketGroup.PUT("/:bucket", bucketsHandler.Create)
 	bucketGroup.DELETE("/:bucket", bucketsHandler.Delete)
 

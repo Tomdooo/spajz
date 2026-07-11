@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"time"
 
 	"github.com/Tomdooo/spajz/pkg/hashx"
 )
@@ -12,10 +13,11 @@ type ImagePresetMap map[string]*ImagePreset
 type VideoPresetMap map[string]*VideoPreset
 
 type BucketConfig struct {
-	Bucket   BucketSection  `toml:"bucket"`
-	Cache    CacheSection   `toml:"cache"`
-	Presets  PresetsSection `toml:"presets"`
-	Database *sql.DB
+	Bucket    BucketSection  `toml:"bucket"`
+	Cache     CacheSection   `toml:"cache"`
+	Presets   PresetsSection `toml:"presets"`
+	CreatedAt time.Time
+	Database  *sql.DB
 }
 
 type BucketSection struct {

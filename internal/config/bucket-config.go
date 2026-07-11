@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -109,16 +110,39 @@ func (m *BucketConfigManager) loadBucket(bucket string) error {
 		if os.IsNotExist(err) {
 			return ErrBucketNotExist
 		}
-		return fmt.Errorf("failed to decode bucket config for '%s': %w", bucket, err)
+		return fmt.Errorf("failed to decode bucket config for %q: %w", bucket, err)
 	}
 
 	bucketConfig.Cache.MaxSizeBytes = int64(bucketConfig.Cache.MaxSizeGB) * 1024 * 1024 * 1024
+
+	createdAt, err := m.getCreatedAt(bucket)
+	if err != nil {
+		return fmt.Errorf("failed to obtain created at entry of bucket %q: %w", bucket, err)
+	}
+	bucketConfig.CreatedAt = createdAt
 
 	bucketConfig.processPresets()
 
 	m.configMap[bucket] = bucketConfig
 
 	return nil
+}
+
+func (m *BucketConfigManager) getCreatedAt(bucket string) (time.Time, error) { // ?: is return alright?
+	bucketDir := GetBucketDir(bucket)
+	info, err := os.Stat(bucketDir)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to get created at info of bucket %q: %w", bucket, err)
+	}
+	return info.ModTime(), nil
+}
+
+func (m *BucketConfigManager) GetCreatedAt(bucket string) (time.Time, error) {
+	bucketConfig, err := m.GetConfig(bucket)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return bucketConfig.CreatedAt, nil
 }
 
 func (m *BucketConfigManager) getConfig(bucket string) (*BucketConfig, error) {
