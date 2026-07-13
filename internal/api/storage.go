@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -33,10 +34,18 @@ func (h *StorageHandler) Head(c *echo.Context) error {
 
 	metadata, err := storage.GetMetadata(fileContext)
 	if err != nil {
-		if errors.Is(err, storage.ErrBucketNotExist) || errors.Is(err, storage.ErrFileNotExist) {
-			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		switch {
+		case errors.Is(err, models.ErrBucketNotFound):
+			return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+		case errors.Is(err, models.ErrFileNotFound):
+			return echo.NewHTTPError(http.StatusNotFound, "No such file.")
+		default:
+			slog.Error("Failed to get storage file metadata.",
+				"bucket", fileContext.Bucket,
+				"objectKey", fileContext.ObjectKey,
+				"error", err)
+			return err
 		}
-		return err
 	}
 
 	setFileFullHeaders(c, metadata)
@@ -70,24 +79,54 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 		var isCacheHit bool
 		file, metadata, isCacheHit, err = storage.GetPresetVariant(ctx, fileContext, preset)
 
-		if isCacheHit {
-			c.Response().Header().Set("Cache", "HIT") // TODO: verify format of the header
+		if err != nil {
+			switch {
+			case errors.Is(err, models.ErrPresetNotFound):
+				return echo.NewHTTPError(http.StatusBadRequest, "No such preset.")
+			case errors.Is(err, models.ErrBucketNotFound):
+				return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+			case errors.Is(err, models.ErrFileNotFound):
+				return echo.NewHTTPError(http.StatusNotFound, "No such file.")
+			case errors.Is(err, models.ErrUnsupportedFormat):
+				slog.Error("Unsupported image variant format.",
+					"bucket", fileContext.Bucket,
+					"objectKey", fileContext.ObjectKey,
+					"preset", preset,
+					"error", err)
+				return err
+			default:
+				slog.Error("Failed to get storage file image variant.",
+					"bucket", fileContext.Bucket,
+					"objectKey", fileContext.ObjectKey,
+					"preset", preset,
+					"error", err)
+				return err
+			}
 		} else {
-			c.Response().Header().Set("Cache", "MISS")
+			if isCacheHit {
+				c.Response().Header().Set("X-Cache", "HIT") // TODO: verify format of the header
+			} else {
+				c.Response().Header().Set("X-Cache", "MISS")
+			}
 		}
-
 	} else { // Base image
 		fileContext := models.NewFileRequestContext(dto.Bucket, dto.ObjectKey, storage.GetObjectHash(dto.ObjectKey))
 		file, metadata, err = storage.GetWithMetadata(fileContext)
-	}
 
-	if err != nil {
-		if errors.Is(err, storage.ErrPresetNotExist) || errors.Is(err, storage.ErrUnsupportedFormat) {
-			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-		} else if errors.Is(err, storage.ErrFileNotExist) || errors.Is(err, storage.ErrBucketNotExist) {
-			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		if err != nil {
+			switch {
+			case errors.Is(err, models.ErrBucketNotFound):
+				return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+			case errors.Is(err, models.ErrFileNotFound):
+				return echo.NewHTTPError(http.StatusNotFound, "No such file.")
+			default:
+				slog.Error("Failed to get storage file.",
+					"bucket", fileContext.Bucket,
+					"objectKey", fileContext.ObjectKey,
+					"error", err)
+				return err
+			}
 		}
-		return err
 	}
 
 	setFileFullHeaders(c, metadata)
@@ -146,12 +185,18 @@ func (h *StorageHandler) Upload(c *echo.Context) error {
 	fileContext := models.NewFileRequestContext(bucket, objectKey, storage.GetObjectHash(objectKey))
 	metadata, err := storage.Add(fileContext, fileReader)
 	if err != nil {
-		if errors.Is(err, storage.ErrBucketNotExist) {
-			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-		} else if errors.Is(err, storage.ErrFileExist) {
-			return echo.NewHTTPError(http.StatusConflict, err.Error())
+		switch {
+		case errors.Is(err, models.ErrBucketNotFound):
+			return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+		case errors.Is(err, models.ErrFileAlreadyExists):
+			return echo.NewHTTPError(http.StatusConflict, "File already exists.")
+		default:
+			slog.Error("Failed to upload storage file.",
+				"bucket", fileContext.Bucket,
+				"objectKey", fileContext.ObjectKey,
+				"error", err)
+			return err
 		}
-		return err
 	}
 
 	setFileEtagHeader(c, metadata)
@@ -170,10 +215,18 @@ func (h *StorageHandler) Delete(c *echo.Context) error {
 	ctx := c.Request().Context()
 	fileContext := models.NewFileRequestContext(dto.Bucket, dto.ObjectKey, storage.GetObjectHash(dto.ObjectKey))
 	if err := storage.Delete(ctx, fileContext); err != nil {
-		if errors.Is(err, storage.ErrBucketNotExist) || errors.Is(err, storage.ErrFileNotExist) {
-			return echo.NewHTTPError(http.StatusNotFound, err.Error())
+		switch {
+		case errors.Is(err, models.ErrBucketNotFound):
+			return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+		case errors.Is(err, models.ErrFileNotFound):
+			return echo.NewHTTPError(http.StatusNotFound, "No such file.")
+		default:
+			slog.Error("Failed to delete storage file.",
+				"bucket", fileContext.Bucket,
+				"objectKey", fileContext.ObjectKey,
+				"error", err)
+			return err
 		}
-		return err
 	}
 
 	return c.NoContent(http.StatusNoContent)

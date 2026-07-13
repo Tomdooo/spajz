@@ -12,14 +12,10 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/Tomdooo/spajz/internal/models"
 )
 
 const BUCKET_CONFIG_FILE_NAME = "bucket.toml"
-
-var (
-	ErrBucketNotExist = errors.New("Bucket not exist.")
-	ErrPresetNotExist = errors.New("Preset not exist.")
-)
 
 var bucketConfigManager *BucketConfigManager
 var once sync.Once
@@ -41,7 +37,7 @@ func (m *BucketConfigManager) GetDefaultConfig() *BucketConfig {
 	apiKeys := make(ApiKeys, 0)
 	apiKeys = append(apiKeys, ApiKey{
 		Name:         "default",
-		Key:          "spajz-default-api-key",
+		Key:          "spajz-default-api-key", // TODO: refactor...
 		AllowReading: true,
 		AllowUpload:  true,
 		AllowDelete:  true,
@@ -64,10 +60,9 @@ func (m *BucketConfigManager) GetDefaultConfig() *BucketConfig {
 }
 
 func (m *BucketConfigManager) LoadBucketConfigs() error {
-	fmt.Println(DataDir)
 	dirEntries, err := os.ReadDir(DataDir)
 	if err != nil {
-		return fmt.Errorf("failed to read buckets directory: %w", err)
+		return fmt.Errorf("reading bucket directory: %w", err)
 	}
 
 	m.mu.Lock()
@@ -82,8 +77,8 @@ func (m *BucketConfigManager) LoadBucketConfigs() error {
 
 		err := m.loadBucket(dirEntry.Name())
 		if err != nil {
-			if errors.Is(err, ErrBucketNotExist) {
-				slog.Debug("folder is not bucket", "folder", dirEntry.Name())
+			if errors.Is(err, models.ErrBucketNotFound) {
+				slog.Warn("folder is not bucket", "folder", dirEntry.Name())
 				continue
 			}
 			return err
@@ -91,7 +86,7 @@ func (m *BucketConfigManager) LoadBucketConfigs() error {
 	}
 
 	count := len(m.configMap)
-	slog.Info("Buckets loaded successfully", "count", count)
+	slog.Info("Buckets loaded successfully.", "count", count)
 	return nil
 }
 
@@ -108,39 +103,53 @@ func (m *BucketConfigManager) loadBucket(bucket string) error {
 	_, err := toml.DecodeFile(bucketConfigPath, &bucketConfig)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return ErrBucketNotExist
+			return models.ErrBucketNotFound
 		}
-		return fmt.Errorf("failed to decode bucket config for %q: %w", bucket, err)
+		return fmt.Errorf("decoding bucket config: %w", err)
 	}
 
 	bucketConfig.Cache.MaxSizeBytes = int64(bucketConfig.Cache.MaxSizeGB) * 1024 * 1024 * 1024
 
 	createdAt, err := m.getCreatedAt(bucket)
 	if err != nil {
-		return fmt.Errorf("failed to obtain created at entry of bucket %q: %w", bucket, err)
+		return fmt.Errorf("getting created at value of bucket: %w", err)
 	}
 	bucketConfig.CreatedAt = createdAt
 
-	bucketConfig.processPresets()
+	if err := bucketConfig.Presets.ProcessPresets(); err != nil {
+		return fmt.Errorf("loading bucket presets: %w", err)
+	}
 
 	m.configMap[bucket] = bucketConfig
 
 	return nil
 }
 
-func (m *BucketConfigManager) getCreatedAt(bucket string) (time.Time, error) { // ?: is return alright?
+func (m *BucketConfigManager) UnloadBucket(bucket string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.unloadBucket(bucket)
+}
+
+func (m *BucketConfigManager) unloadBucket(bucket string) {
+	delete(m.configMap, bucket)
+}
+
+func (m *BucketConfigManager) getCreatedAt(bucket string) (time.Time, error) {
 	bucketDir := GetBucketDir(bucket)
 	info, err := os.Stat(bucketDir)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to get created at info of bucket %q: %w", bucket, err)
+		return time.Time{}, fmt.Errorf("reading stats of bucket directory: %w", err)
 	}
 	return info.ModTime(), nil
 }
 
 func (m *BucketConfigManager) GetCreatedAt(bucket string) (time.Time, error) {
-	bucketConfig, err := m.GetConfig(bucket)
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	bucketConfig, err := m.getConfig(bucket)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, fmt.Errorf("getting bucket config: %w", err)
 	}
 	return bucketConfig.CreatedAt, nil
 }
@@ -148,7 +157,7 @@ func (m *BucketConfigManager) GetCreatedAt(bucket string) (time.Time, error) {
 func (m *BucketConfigManager) getConfig(bucket string) (*BucketConfig, error) {
 	config := m.configMap[bucket]
 	if config == nil {
-		return nil, ErrBucketNotExist
+		return nil, models.ErrBucketNotFound
 	}
 	return config, nil
 }
@@ -171,9 +180,9 @@ func (m *BucketConfigManager) GetImagePreset(bucket, preset string) (*ImagePrese
 	if err != nil {
 		return nil, err
 	}
-	presetConfig := bucketConfig.Presets.Image[preset]
+	presetConfig, err := bucketConfig.Presets.GetImagePreset(preset)
 	if presetConfig == nil {
-		return nil, ErrPresetNotExist
+		return nil, fmt.Errorf("getting image preset: %w", err)
 	}
 	return presetConfig, nil
 }
@@ -183,11 +192,11 @@ func (m *BucketConfigManager) VerifyApiKey(bucket, key string) (valid bool, apiK
 	defer m.mu.RUnlock()
 	bucketConfig, err := m.getConfig(bucket)
 	if err != nil {
-		return false, nil, err
+		return false, nil, fmt.Errorf("getting bucket config: %w", err)
 	}
 	var validApiKey ApiKey
 	for _, apiKey := range bucketConfig.Bucket.ApiKeys {
-		if apiKey.Key == key {
+		if apiKey.Key == key { // ?: maybe here is needed that save equal time comparation?
 			validApiKey = apiKey
 			break
 		}
@@ -204,7 +213,7 @@ func (m *BucketConfigManager) GetBucketList() []string {
 func GetBucketList() ([]string, error) {
 	dirEntries, err := os.ReadDir(DataDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read buckets directory: %w", err)
+		return nil, fmt.Errorf("reading bucket directory: %w", err)
 	}
 
 	buckets := []string{}
@@ -217,8 +226,7 @@ func GetBucketList() ([]string, error) {
 		_, err := os.Stat(configPath)
 		if err != nil {
 			if !os.IsNotExist(err) {
-				// TODO: better error handling
-				slog.Error("failed to read file stats to verify it's existance", "filePath", configPath, "error", err)
+				return nil, fmt.Errorf("failed to verify bucket existance: %w", err)
 			}
 			continue
 		}

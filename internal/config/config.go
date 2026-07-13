@@ -27,7 +27,7 @@ func Initialize() {
 	TempDir = filepath.Join(DataDir, ".tmp")
 	err := os.MkdirAll(filepath.Join(TempDir), 0o755)
 	if err != nil {
-		log.Fatal("Error creating data folder.")
+		log.Fatal("Error creating data folder: %w", err)
 	}
 
 }

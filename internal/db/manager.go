@@ -2,17 +2,13 @@ package db
 
 import (
 	"database/sql"
-	"errors"
+	"fmt"
 	"path/filepath"
 	"sync"
 
 	"github.com/Tomdooo/spajz/internal/config"
+	"github.com/Tomdooo/spajz/internal/models"
 	_ "modernc.org/sqlite"
-)
-
-var (
-	ErrConnectionAlreadyExists = errors.New("Connection already exists.")
-	ErrBucketNotExist          = errors.New("Bucket does not exist.")
 )
 
 var databaseManager *DatabaseManager
@@ -45,12 +41,12 @@ type DatabaseManager struct {
 func (m *DatabaseManager) InitBucketDatabases() error {
 	buckets, err := config.GetBucketList()
 	if err != nil {
-		return err
+		return fmt.Errorf("getting bucket list: %w", err)
 	}
 	for _, bucket := range buckets {
 		err := m.InitDatabase(bucket)
 		if err != nil {
-			return err
+			return fmt.Errorf("initializing bucket database: %w", err)
 		}
 	}
 	return nil
@@ -60,9 +56,9 @@ func (m *DatabaseManager) InitDatabase(bucket string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	bucketConfig := m.bucketsMap[bucket] // ?: cannot understand now, check
+	bucketConfig := m.bucketsMap[bucket]
 	if bucketConfig != nil {
-		return ErrBucketNotExist
+		return models.ErrBucketAlreadyExists
 	}
 
 	dbPath := filepath.Join(config.GetBucketDir(bucket), "bucket.db")
@@ -70,20 +66,21 @@ func (m *DatabaseManager) InitDatabase(bucket string) error {
 	// 1. Otevřeme spojení s databází
 	database, err := sql.Open("sqlite", dbPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("opening database: %w", err)
 	}
 
 	// 2. Nastavíme zlatou SQLite konfiguraci (WAL režim atd.)
 	if _, err := database.Exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;"); err != nil {
 		database.Close()
-		return err
+
+		return fmt.Errorf("executing PRAGMA configurations: %w", err)
 	}
 
 	// 3. Spustíme vestavěnou migraci schématu
 	// Exec bez problému schroustá i soubor s více příkazy oddělenými středníkem
 	if _, err := database.Exec(dbSchema); err != nil {
 		database.Close()
-		return err
+		return fmt.Errorf("loading database schema: %w", err)
 	}
 
 	queries := New(database)
@@ -97,12 +94,18 @@ func (m *DatabaseManager) InitDatabase(bucket string) error {
 	return nil
 }
 
+func (m *DatabaseManager) DestroyDatabase(bucket string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.bucketsMap, bucket)
+}
+
 func (m *DatabaseManager) getDatabase(bucket string) (*BucketDatabase, error) {
-	connection := m.bucketsMap[bucket]
-	if connection == nil {
-		return nil, ErrBucketNotExist
+	database := m.bucketsMap[bucket]
+	if database == nil {
+		return nil, models.ErrBucketNotFound // ?: maybe database not found?
 	}
-	return connection, nil
+	return database, nil
 }
 
 func (m *DatabaseManager) GetDatabase(bucket string) (*BucketDatabase, error) {

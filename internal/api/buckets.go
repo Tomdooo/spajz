@@ -2,9 +2,11 @@ package api
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/Tomdooo/spajz/internal/buckets"
+	"github.com/Tomdooo/spajz/internal/models"
 	"github.com/labstack/echo/v5"
 )
 
@@ -29,10 +31,15 @@ func (h *BucketsHandler) Create(c *echo.Context) error {
 	}
 	// create bucket
 	if err := buckets.Create(dto.Bucket); err != nil {
-		if errors.Is(err, buckets.ErrAlreadyExists) {
-			return echo.NewHTTPError(http.StatusConflict, "Bucket already exists.")
+		switch {
+		case errors.Is(err, models.ErrBucketAlreadyExists):
+			return echo.NewHTTPError(http.StatusConflict, "No such bucket.")
+		default:
+			slog.Error("Failed to create bucket.",
+				"bucket", dto.Bucket,
+				"error", err)
+			return err
 		}
-		return err
 	}
 	header := c.Response().Header()
 	header.Set("Location", "/"+dto.Bucket)
@@ -51,10 +58,15 @@ func (h *BucketsHandler) Delete(c *echo.Context) error {
 
 	// delete
 	if err := buckets.Delete(dto.Bucket); err != nil {
-		if errors.Is(err, buckets.ErrBucketNotExist) {
+		switch {
+		case errors.Is(err, models.ErrBucketNotFound):
 			return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+		default:
+			slog.Error("Failed to delete bucket.",
+				"bucket", dto.Bucket,
+				"error", err)
+			return err
 		}
-		return err
 	}
 
 	return c.NoContent(http.StatusNoContent)
@@ -67,9 +79,8 @@ type GetResponseBody struct {
 func (h *BucketsHandler) Get(c *echo.Context) error {
 	bucketEntries, err := buckets.Get()
 	if err != nil {
-		if errors.Is(err, buckets.ErrBucketNotExist) {
-			return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
-		}
+		slog.Error("Failed to list buckets.",
+			"error", err)
 		return err
 	}
 

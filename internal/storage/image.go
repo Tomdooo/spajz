@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -10,9 +9,6 @@ import (
 	"github.com/h2non/bimg"
 	"golang.org/x/sync/singleflight"
 )
-
-var ErrPresetNotExist = errors.New("Preset does not exist.")
-var ErrUnsupportedFormat = errors.New("Unsupported format.")
 
 var imageGenerator = NewImageGenerator()
 
@@ -44,7 +40,7 @@ func (ig *ImageGenerator) getBimgImageType(format string) (bimg.ImageType, error
 		return bimg.HEIF, nil
 	}
 
-	return 0, ErrUnsupportedFormat
+	return 0, models.ErrUnsupportedFormat
 }
 
 func (ig *ImageGenerator) CreatePresetVariant(fileContext *models.FileRequestContext, presetConfig *config.ImagePreset) ([]byte, error) {
@@ -56,18 +52,10 @@ func (ig *ImageGenerator) CreatePresetVariant(fileContext *models.FileRequestCon
 		// Load original image
 		originalImage, err := Get(fileContext)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read original file: %w", err)
+			return nil, fmt.Errorf("reading original file: %w", err)
 		}
-		// Prepare preset config
-		// presetConfig, err := ig.bucketConfigManager.GetImagePreset(bucket, preset)
-		// if err != nil {
-		// 	if errors.Is(err, config.ErrBucketNotExist) {
-		// 		return nil, ErrBucketNotExist
-		// 	} else if errors.Is(err, config.ErrPresetNotExist) {
-		// 		return nil, ErrPresetNotExist
-		// 	}
-		// }
 
+		// Prepare preset config
 		format, err := ig.getBimgImageType(presetConfig.Format)
 		if err != nil {
 			return nil, err
@@ -96,7 +84,7 @@ func (ig *ImageGenerator) CreatePresetVariant(fileContext *models.FileRequestCon
 
 	// Check for singleflight errors
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed singleflight image processing: %w", err)
 	}
 
 	return v.([]byte), nil

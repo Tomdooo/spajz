@@ -4,13 +4,17 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"sync"
 	"time"
 
+	"github.com/Tomdooo/spajz/internal/models"
 	"github.com/Tomdooo/spajz/pkg/hashx"
 )
 
 type ImagePresetMap map[string]*ImagePreset
-type VideoPresetMap map[string]*VideoPreset
+
+// type VideoPresetMap map[string]*VideoPreset
 
 type BucketConfig struct {
 	Bucket    BucketSection  `toml:"bucket"`
@@ -45,10 +49,11 @@ type CacheSection struct {
 }
 
 type PresetsSection struct {
+	mu              sync.RWMutex
 	RawImagePresets []ImagePreset `toml:"image"`
 	Image           ImagePresetMap
-	RawVideoPresets []VideoPreset `toml:"video"`
-	Video           VideoPresetMap
+	// RawVideoPresets []VideoPreset `toml:"video"`
+	// Video           VideoPresetMap
 }
 
 type ImagePreset struct {
@@ -62,32 +67,48 @@ type ImagePreset struct {
 	ConfigHash string
 }
 
-type VideoPreset struct { // NOTE: video presets are not handeled yet
-	Name        string `toml:"name"`
-	Codec       string `toml:"codec"`
-	Resolution  string `toml:"resolution"`
-	Fps         int    `toml:"fps"`
-	BitrateKbps int    `toml:"bitrate_kbps"`
-}
+// type VideoPreset struct { // NOTE: video presets are not handeled yet
+// 	Name        string `toml:"name"`
+// 	Codec       string `toml:"codec"`
+// 	Resolution  string `toml:"resolution"`
+// 	Fps         int    `toml:"fps"`
+// 	BitrateKbps int    `toml:"bitrate_kbps"`
+// }
 
-func (c *BucketConfig) processPresets() error {
-	c.Presets.Image = make(ImagePresetMap)
-	for _, imagePreset := range c.Presets.RawImagePresets {
+func (c *PresetsSection) ProcessPresets() error {
+	c.mu.Lock() // ?: with presets refactor move into public method
+	defer c.mu.Unlock()
+	c.Image = make(ImagePresetMap)
+	for _, imagePreset := range c.RawImagePresets {
 		// calculate config hash
 		configJson, err := json.Marshal(imagePreset)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to marshal json: %w", err)
 		}
 		hash := hex.EncodeToString(hashx.HashSHA256(configJson))
 		imagePreset.ConfigHash = hash
 
 		// apend to image preset map
-		c.Presets.Image[imagePreset.Name] = &imagePreset
+		c.Image[imagePreset.Name] = &imagePreset
 	}
 
-	c.Presets.Video = make(VideoPresetMap)
-	for _, videoPreset := range c.Presets.RawVideoPresets {
-		c.Presets.Video[videoPreset.Name] = &videoPreset
-	}
+	// c.Presets.Video = make(VideoPresetMap)
+	// for _, videoPreset := range c.Presets.RawVideoPresets {
+	// 	c.Presets.Video[videoPreset.Name] = &videoPreset
+	// }
 	return nil
+}
+
+func (c *PresetsSection) GetImagePreset(preset string) (*ImagePreset, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.getImagePreset(preset)
+}
+
+func (c *PresetsSection) getImagePreset(preset string) (*ImagePreset, error) {
+	presetConfig := c.Image[preset]
+	if presetConfig == nil {
+		return nil, models.ErrPresetNotFound
+	}
+	return presetConfig, nil
 }

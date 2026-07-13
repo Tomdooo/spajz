@@ -26,21 +26,15 @@ const (
 	METADATA_FILENAME = "metadata.json"
 )
 
-var (
-	ErrBucketNotExist = errors.New("Bucket does not exist.")
-	ErrFileExist      = errors.New("File already exists.")
-	ErrFileNotExist   = errors.New("File does not exist.")
-)
-
 var cacheManager = cache.GetCacheManager()
 var bucketConfigManager = config.GetBucketConfigManager()
 
 func Add(fileContext *models.FileRequestContext, r io.Reader) (*FileMeta, error) {
 	// Verify bucket existance
 	if bucketExists, err := buckets.Exists(fileContext.Bucket); err != nil {
-		return nil, fmt.Errorf("Couldn't verify, if %q bucket exists: %w", fileContext.Bucket, err)
+		return nil, fmt.Errorf("verifying existance of bucket: %w", err)
 	} else if !bucketExists {
-		return nil, ErrBucketNotExist
+		return nil, models.ErrBucketNotFound
 	}
 
 	// Create temp file and calculate hash
@@ -49,15 +43,37 @@ func Add(fileContext *models.FileRequestContext, r io.Reader) (*FileMeta, error)
 
 	tempFile, err := os.CreateTemp(config.TempDir, "spajz_file_*.tmp")
 	if err != nil {
-		return nil, fmt.Errorf("failed creating temp file for %q in bucket %q: %w", fileContext.ObjectKey, fileContext.Bucket, err)
+		return nil, fmt.Errorf("creating temp file: %w", err)
 	}
-	defer os.Remove(tempFile.Name())
-	defer tempFile.Close()
+	defer func() { // close temp file after unexpected earlier method end
+		tempFileName := tempFile.Name()
+		err := tempFile.Close()
+		if err != nil && !errors.Is(err, os.ErrClosed) {
+			slog.Error("Failed to close temp file after uploading.",
+				"bucket", fileContext.Bucket,
+				"objectKey", fileContext.ObjectKey,
+				"tempFileName", tempFileName,
+				"error", err)
+		}
+	}()
+	defer func() { // delete temp file after method end
+		tempFileName := tempFile.Name()
+		err := os.Remove(tempFileName)
+		if err != nil {
+			slog.Error("Failed to delete temp file after uploading.",
+				"bucket", fileContext.Bucket,
+				"objectKey", fileContext.ObjectKey,
+				"tempFileName", tempFileName,
+				"error", err)
+		}
+	}()
 
 	if _, err := io.Copy(tempFile, tee); err != nil {
-		return nil, fmt.Errorf("failed to write data to temp file %q for %q in bucket %q: %w", tempFile.Name(), fileContext.ObjectKey, fileContext.Bucket, err)
+		return nil, fmt.Errorf("failed to write data into temp file %s: %w", tempFile.Name(), err)
 	}
-	tempFile.Close()
+	if err := tempFile.Close(); err != nil {
+		return nil, fmt.Errorf("failed to close temp file %s: %w", tempFile.Name(), err)
+	}
 
 	etag := hex.EncodeToString(h.Sum(nil))
 
@@ -69,23 +85,23 @@ func Add(fileContext *models.FileRequestContext, r io.Reader) (*FileMeta, error)
 	metadataPath := filepath.Join(fileDir, METADATA_FILENAME)
 
 	if _, err := os.Stat(filePath); err == nil { // verify existance of the file in storage
-		return nil, ErrFileExist
+		return nil, models.ErrFileAlreadyExists
 	} else if !os.IsNotExist(err) {
-		return nil, fmt.Errorf("failed to verify existance of %q in bucket %q: %w", fileContext.ObjectKey, fileContext.Bucket, err)
+		return nil, fmt.Errorf("verifying existance of storage file: %w", err)
 	}
 
 	if err := os.MkdirAll(fileDir, 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create storage directories for %q file in %q bucket: %w", fileContext.ObjectKey, fileContext.Bucket, err)
+		return nil, fmt.Errorf("creating storage directiories for file: %w", err)
 	}
 
 	fileStats, err := os.Stat(tempFile.Name())
 	if err != nil {
-		return nil, fmt.Errorf("failed to obtain temp file stats of %q in bucket %q: %w", fileContext.ObjectKey, fileContext.Bucket, err)
+		return nil, fmt.Errorf("getting temp file stats (%s): %w", tempFile.Name(), err)
 	}
 
 	contentType, err := detectContentType(tempFile.Name())
 	if err != nil {
-		return nil, fmt.Errorf("failed to detect content type of %q in bucket %q: %w", fileContext.ObjectKey, fileContext.Bucket, err)
+		return nil, fmt.Errorf("detecting content type of temp file %s: %w", tempFile.Name(), err)
 	}
 	metadata := &FileMeta{
 		Id:          hashedFilename,
@@ -99,15 +115,15 @@ func Add(fileContext *models.FileRequestContext, r io.Reader) (*FileMeta, error)
 	}
 	metadataJson, err := json.MarshalIndent(metadata, "", "  ")
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal metadata for %q in bucket %q: %w", fileContext.ObjectKey, fileContext.Bucket, err)
+		return nil, fmt.Errorf("marshaling metadata for new storage file: %w", err)
 	}
 	if err := os.WriteFile(metadataPath, metadataJson, 0o644); err != nil {
-		return nil, fmt.Errorf("failed to create metadata file for %q in bucket %q: %w", fileContext.ObjectKey, fileContext.Bucket, err)
+		return nil, fmt.Errorf("creating metadata file for storage file: %w", err)
 	}
 
 	// Copy temp file to it's destination
 	if err := os.Rename(tempFile.Name(), filePath); err != nil {
-		return nil, fmt.Errorf("failed to copy temp file into it's final destination for %q in bucket %q: %w", fileContext.ObjectKey, fileContext.Bucket, err)
+		return nil, fmt.Errorf("copying temp file (%s) into it's final destination: %w", tempFile.Name(), err)
 	}
 
 	return metadata, nil
@@ -120,9 +136,9 @@ func Get(fileContext *models.FileRequestContext) ([]byte, error) {
 	file, err := os.ReadFile(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, ErrFileNotExist
+			return nil, models.ErrFileNotFound
 		}
-		return nil, fmt.Errorf("failed to verify existance of %q in bucket %q: %w", fileContext.ObjectKey, fileContext.Bucket, err)
+		return nil, fmt.Errorf("reading storage file: %w", err)
 	}
 
 	return file, nil
@@ -135,9 +151,9 @@ func GetMetadata(fileContext *models.FileRequestContext) (*FileMeta, error) {
 	file, err := os.ReadFile(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, ErrFileNotExist
+			return nil, models.ErrFileNotFound
 		}
-		return nil, fmt.Errorf("failed to verify existance of %q in bucket %q: %w", fileContext.ObjectKey, fileContext.Bucket, err)
+		return nil, fmt.Errorf("reading metadata of storage file: %w", err)
 	}
 
 	var metadata *FileMeta
@@ -151,11 +167,11 @@ func GetMetadata(fileContext *models.FileRequestContext) (*FileMeta, error) {
 func GetWithMetadata(fileContext *models.FileRequestContext) ([]byte, *FileMeta, error) {
 	file, err := Get(fileContext)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("getting storage file: %w", err)
 	}
 	metadata, err := GetMetadata(fileContext)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("getting metadata of storage file: %w", err)
 	}
 	return file, metadata, nil
 }
@@ -165,17 +181,12 @@ func GetPresetVariant(ctx context.Context, fileContext *models.FileRequestContex
 	// get image preset and work with that for ensured consistency
 	presetConfig, err := bucketConfigManager.GetImagePreset(fileContext.Bucket, preset)
 	if err != nil {
-		if errors.Is(err, config.ErrBucketNotExist) {
-			return nil, nil, false, ErrBucketNotExist
-		}
-		return nil, nil, false, err
+		return nil, nil, false, fmt.Errorf("getting bucket image preset: %w", err)
 	}
-	// get image variant from cache, if exists return
+	// get image variant from cache, if exists with same preset config return
 	cached, err := cacheManager.GetFile(ctx, fileContext, preset)
-	if err != nil && !errors.Is(err, cache.ErrFileNotExist) {
-		if errors.Is(err, cache.ErrBucketNotExist) {
-			return nil, nil, false, ErrBucketNotExist
-		}
+	if err != nil && !errors.Is(err, models.ErrFileNotFound) {
+		return nil, nil, false, fmt.Errorf("getting cached file: %w", err)
 	}
 	if cached != nil && cached.PresetConfigHash == presetConfig.ConfigHash {
 		fileMeta := &FileMeta{
@@ -200,7 +211,7 @@ func GetPresetVariant(ctx context.Context, fileContext *models.FileRequestContex
 	// generate image variant
 	file, err = imageGenerator.CreatePresetVariant(fileContext, presetConfig)
 	if err != nil {
-		return nil, nil, false, err
+		return nil, nil, false, fmt.Errorf("creating image variant from preset: %w", err)
 	}
 	fileMeta = &FileMeta{
 		ContentType: http.DetectContentType(file), // ?: Maybe do not detect, but hardcode
@@ -216,12 +227,8 @@ func GetPresetVariant(ctx context.Context, fileContext *models.FileRequestContex
 				"bucket", fileContext.Bucket,
 				"objectKey", fileContext.ObjectKey,
 				"preset", presetConfig.Name,
-				"preset", presetConfig.Name,
 				"error", err)
 		}
-		// fileRow, err := cacheManager.GetFile(ctx, fileContext, presetConfig.Name)
-		// fmt.Println(err)
-		// fmt.Println(fileRow)
 	}(context.Background(), fileContext, presetConfig, fileMeta, file)
 
 	return file, fileMeta, false, nil
@@ -230,12 +237,13 @@ func GetPresetVariant(ctx context.Context, fileContext *models.FileRequestContex
 func Exists(fileConfig *models.FileRequestContext) (bool, error) {
 	fileDir := getFileDir(fileConfig.Bucket, fileConfig.ObjectHash)
 	metaFilePath := filepath.Join(fileDir, METADATA_FILENAME)
+
 	_, err := os.Stat(metaFilePath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return false, nil
 		}
-		return false, err
+		return false, fmt.Errorf("verifying existance of storage file: %w", err)
 	}
 	return true, nil
 }
@@ -243,28 +251,30 @@ func Exists(fileConfig *models.FileRequestContext) (bool, error) {
 func Delete(ctx context.Context, fileConfig *models.FileRequestContext) error {
 	// verify bucket existance
 	if bucketExists, err := buckets.Exists(fileConfig.Bucket); err != nil {
-		return fmt.Errorf("Couldn't verify, if %q bucket exists: %w", fileConfig.Bucket, err)
+		return fmt.Errorf("verifying bucket existance: %w", err)
 	} else if !bucketExists {
-		return ErrBucketNotExist
+		return models.ErrBucketNotFound
 	}
 
 	// verify file existance
 	exists, err := Exists(fileConfig)
 	if err != nil {
-		return fmt.Errorf("Failed to verify file existance: %w", err)
+		return fmt.Errorf("verifying storage file existance: %w", err)
 	}
 	if !exists {
-		return ErrFileNotExist
+		return models.ErrFileNotFound
 	}
 
 	// cache Delete
-	cacheManager.DeleteAllFiles(ctx, fileConfig)
+	if err := cacheManager.DeleteAllFilesByObjectHash(ctx, fileConfig); err != nil {
+		return fmt.Errorf("deleting all storage file cached variants: %w", err)
+	}
 
 	// delete folder
 	fileDir := getFileDir(fileConfig.Bucket, fileConfig.ObjectHash)
 
 	if err := os.RemoveAll(fileDir); err != nil {
-		return err
+		return fmt.Errorf("deleting storage file folder: %w", err)
 	}
 	return nil
 }

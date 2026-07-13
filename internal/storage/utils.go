@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -28,7 +29,7 @@ func getFileDir(bucket string, objectHash string) string {
 func detectContentType(filePath string) (string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("opening file: %w", err)
 	}
 	defer file.Close()
 
@@ -37,7 +38,7 @@ func detectContentType(filePath string) (string, error) {
 	n, err := file.Read(buffer)
 	// io.EOF je v pořádku, pokud je soubor menší než 512 bajtů (např. mini ikona)
 	if err != nil && err != io.EOF {
-		return "", err
+		return "", fmt.Errorf("reading file: %w", err)
 	}
 
 	// Analyzujeme pouze skutečně přečtené bajty

@@ -15,12 +15,6 @@ import (
 	"github.com/Tomdooo/spajz/pkg/hashx"
 )
 
-var (
-	ErrBucketNotExist = errors.New("Bucket does not exist.")
-	ErrFileNotExist   = errors.New("File does not exist.")
-	ErrNotSaved       = errors.New("File was not saved.")
-)
-
 const MAX_DELETE_RUNS = 10
 const MAX_IN_DATABASE_FILE_SIZE = 300 * 1024
 
@@ -44,19 +38,18 @@ type CacheManager struct {
 
 func (m *CacheManager) SaveFile(ctx context.Context, fileContext *models.FileRequestContext, presetConfig *config.ImagePreset, mimeType string, data []byte) error {
 	if len(data) > MAX_IN_DATABASE_FILE_SIZE {
+		// TODO: think of different log / err handling
 		slog.Warn("File was too big to save into cache, skipping.", "objectKey", fileContext.ObjectKey, "preset", presetConfig.Name)
 		return nil
 	}
 
 	database, err := m.databaseManager.GetDatabase(fileContext.Bucket)
 	if err != nil {
-		if errors.Is(err, db.ErrBucketNotExist) {
-			return ErrBucketNotExist
-		}
+		return fmt.Errorf("getting bucket database: %w", err)
 	}
 	bucketConfig, err := m.bucketConfigManager.GetConfig(fileContext.Bucket)
 	if err != nil {
-		return ErrBucketNotExist
+		return fmt.Errorf("getting bucket config: %w", err)
 	}
 
 	etag := hex.EncodeToString(hashx.HashMD5(data))
@@ -67,7 +60,7 @@ func (m *CacheManager) SaveFile(ctx context.Context, fileContext *models.FileReq
 	for run := 0; run <= MAX_DELETE_RUNS; run++ { // complete MAX_DELETE_RUNS + 1 to make final verification of available size
 		sizeRow, err := database.Queries.GetInDatabaseCacheSize(ctx)
 		if err != nil {
-			return fmt.Errorf("Failed getting cache size: %w", err)
+			return fmt.Errorf("getting maximum cache size: %w", err)
 		}
 		cacheSize := sizeRow.(int64)
 		fileSize := int64(len(data))
@@ -87,13 +80,11 @@ func (m *CacheManager) SaveFile(ctx context.Context, fileContext *models.FileReq
 
 		deletedRows, err := database.Queries.DeleteOldestCachedWithBlob(ctx, int64(bucketConfig.Cache.CleanBatchSize))
 		if err != nil {
-			return fmt.Errorf("Failed deleting oldest in-database cached files: %w", err)
+			return fmt.Errorf("deleting oldest in-database cached files: %w", err)
 		}
 		count := len(deletedRows)
-		fmt.Println("Deleted rows:")
-		fmt.Println(deletedRows)
 
-		if count != MAX_IN_DATABASE_FILE_SIZE {
+		if count != MAX_IN_DATABASE_FILE_SIZE { // TODO: check the magic here, wtf is happening?
 			slog.Info("Deleted last batch of in-database cached files.", "deletedCount", count, "batchSize", bucketConfig.Cache.CleanBatchSize)
 			if cacheSize+fileSize < bucketConfig.Cache.MaxSizeBytes {
 				isSpaceAvailable = true
@@ -104,8 +95,8 @@ func (m *CacheManager) SaveFile(ctx context.Context, fileContext *models.FileReq
 		}
 	}
 	if !isSpaceAvailable {
-		slog.Warn("Cache is still full after maximum delete runs, skipping cache write", "bucket", fileContext.Bucket)
-		return ErrNotSaved
+		slog.Warn("Cache is still full after maximum delete runs, skipping cache write.", "bucket", fileContext.Bucket)
+		return fmt.Errorf("saving file into in-database cache: %w", models.ErrNotEnoughSpace)
 	}
 
 	// TODO: save to disk or db logic
@@ -120,7 +111,7 @@ func (m *CacheManager) SaveFile(ctx context.Context, fileContext *models.FileReq
 	}
 	err = database.Queries.InsertCache(ctx, params)
 	if err != nil {
-		return err
+		return fmt.Errorf("saving file into in-database cache: %w", err)
 	}
 
 	return nil
@@ -129,9 +120,7 @@ func (m *CacheManager) SaveFile(ctx context.Context, fileContext *models.FileReq
 func (m *CacheManager) GetFile(ctx context.Context, fileContext *models.FileRequestContext, preset string) (*db.GetCachedRow, error) {
 	database, err := m.databaseManager.GetDatabase(fileContext.Bucket)
 	if err != nil {
-		if errors.Is(err, db.ErrBucketNotExist) {
-			return nil, ErrBucketNotExist
-		}
+		return nil, fmt.Errorf("getting bucket database: %w", err)
 	}
 
 	params := db.GetCachedParams{
@@ -141,9 +130,9 @@ func (m *CacheManager) GetFile(ctx context.Context, fileContext *models.FileRequ
 	row, err := database.Queries.GetCached(ctx, params)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrFileNotExist
+			return nil, fmt.Errorf("getting cached file from database: %w: %w", models.ErrFileNotFound, err)
 		}
-		return nil, fmt.Errorf("failed to fetch cached file '%q' in variant '%q' from database for bucket '%q': %w", fileContext.Filename, preset, fileContext.Bucket, err)
+		return nil, fmt.Errorf("getting cached file from database: %w", err)
 	}
 	return &row, nil
 }
@@ -151,9 +140,7 @@ func (m *CacheManager) GetFile(ctx context.Context, fileContext *models.FileRequ
 func (m *CacheManager) UpdateFileAccessTime(ctx context.Context, fileContext *models.FileRequestContext, preset string) error {
 	database, err := m.databaseManager.GetDatabase(fileContext.Bucket)
 	if err != nil {
-		if errors.Is(err, db.ErrBucketNotExist) {
-			return ErrBucketNotExist
-		}
+		return fmt.Errorf("getting bucket database: %w", err)
 	}
 
 	params := db.UpdateAccessTimeParams{
@@ -162,24 +149,19 @@ func (m *CacheManager) UpdateFileAccessTime(ctx context.Context, fileContext *mo
 	}
 	err = database.Queries.UpdateAccessTime(ctx, params)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrFileNotExist
-		}
-		return fmt.Errorf("failed to update cached access time for %q@%q in bucket bucket %q: %w", fileContext.Filename, preset, fileContext.Bucket, err)
+		return fmt.Errorf("updating file access time in database: %w", err)
 	}
 	return nil
 }
 
-func (m *CacheManager) DeleteAllFiles(ctx context.Context, fileContext *models.FileRequestContext) error {
+func (m *CacheManager) DeleteAllFilesByObjectHash(ctx context.Context, fileContext *models.FileRequestContext) error {
 	database, err := m.databaseManager.GetDatabase(fileContext.Bucket)
 	if err != nil {
-		if errors.Is(err, db.ErrBucketNotExist) {
-			return ErrBucketNotExist
-		}
+		return fmt.Errorf("getting bucket database: %w", err)
 	}
 	err = database.Queries.DeleteCachedByObjectHash(ctx, fileContext.ObjectHash)
 	if err != nil {
-		return fmt.Errorf("failed to delete cached items of %q in bucket bucket %q: %w", fileContext.Filename, fileContext.Bucket, err)
+		return fmt.Errorf("deleting cached files by object hash: %w", err)
 	}
 	return nil
 }
@@ -187,9 +169,7 @@ func (m *CacheManager) DeleteAllFiles(ctx context.Context, fileContext *models.F
 func (m *CacheManager) DeleteFile(ctx context.Context, fileContext *models.FileRequestContext, preset string) error {
 	database, err := m.databaseManager.GetDatabase(fileContext.Bucket)
 	if err != nil {
-		if errors.Is(err, db.ErrBucketNotExist) {
-			return ErrBucketNotExist
-		}
+		return fmt.Errorf("getting bucket database: %w", err)
 	}
 	params := db.DeleteCacheItemParams{
 		FileHash: fileContext.ObjectHash,
@@ -197,7 +177,7 @@ func (m *CacheManager) DeleteFile(ctx context.Context, fileContext *models.FileR
 	}
 	err = database.Queries.DeleteCacheItem(ctx, params)
 	if err != nil {
-		return fmt.Errorf("failed to delete cached item of %q@%q in bucket bucket %q: %w", fileContext.Filename, preset, fileContext.Bucket, err)
+		return fmt.Errorf("deleting cached file: %w", err)
 	}
 	return nil
 }
