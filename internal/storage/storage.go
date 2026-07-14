@@ -8,10 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	"github.com/Tomdooo/spajz/internal/buckets"
 	"github.com/Tomdooo/spajz/internal/cache"
@@ -21,7 +23,6 @@ import (
 )
 
 const (
-	STORAGE_DIR       = "storage"
 	BLOB_FILENAME     = "file.blob"
 	METADATA_FILENAME = "metadata.json"
 )
@@ -276,5 +277,50 @@ func Delete(ctx context.Context, fileConfig *models.FileRequestContext) error {
 	if err := os.RemoveAll(fileDir); err != nil {
 		return fmt.Errorf("deleting storage file folder: %w", err)
 	}
+
+	parentDir := filepath.Dir(fileDir)
+	fmt.Println(parentDir)
+	if err := removeIfEmpty(parentDir); err != nil {
+		return fmt.Errorf("cleaning parent directory %s: %w", parentDir, err)
+	}
+
+	grandParentDir := filepath.Dir(parentDir)
+	fmt.Println(grandParentDir)
+	if err := removeIfEmpty(grandParentDir); err != nil {
+		return fmt.Errorf("cleaning grand parent directory %s: %w", parentDir, err)
+	}
+
 	return nil
+}
+
+// removeIfEmpty attempts to remove the specified directory.
+// It returns nil if the deletion succeeds, if the directory does not exist,
+// or if the directory cannot be removed because it is not empty.
+// Any other filesystem errors (e.g., permission denied, I/O errors) are returned.
+func removeIfEmpty(dir string) error {
+	err := os.Remove(dir)
+	if err == nil {
+		return nil
+	}
+
+	// If the directory does not exist, our goal is already achieved.
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+
+	// Unwrap the underlying system error from *fs.PathError to inspect the errno.
+	var pathErr *fs.PathError
+	if errors.As(err, &pathErr) {
+		sysErr := pathErr.Err
+
+		// ENOTEMPTY: standard Unix/Linux "directory not empty"
+		// EEXIST: returned by some specific filesystems when a directory is not empty
+		// Windows/Other: fallback string comparison check for cross-platform reliability
+		if sysErr == syscall.ENOTEMPTY || sysErr == syscall.EEXIST || sysErr.Error() == "directory not empty" {
+			return nil
+		}
+	}
+
+	// Return any other critical errors (e.g., permission issues, read-only filesystem).
+	return err
 }

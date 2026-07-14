@@ -61,6 +61,8 @@ func (h *BucketsHandler) Delete(c *echo.Context) error {
 		switch {
 		case errors.Is(err, models.ErrBucketNotFound):
 			return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+		case errors.Is(err, models.ErrBucketNotEmpty):
+			return echo.NewHTTPError(http.StatusConflict, "Bucket is not empty.")
 		default:
 			slog.Error("Failed to delete bucket.",
 				"bucket", dto.Bucket,

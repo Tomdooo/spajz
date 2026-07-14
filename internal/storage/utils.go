@@ -12,17 +12,13 @@ import (
 	"github.com/Tomdooo/spajz/pkg/hashx"
 )
 
-func getStorageDir(bucket string) string {
-	return filepath.Join(config.GetBucketDir(bucket), STORAGE_DIR)
-}
-
 func GetObjectHash(objectKey string) string {
 	hash := hex.EncodeToString(hashx.HashSHA256([]byte(objectKey)))
 	return hash
 }
 
 func getFileDir(bucket string, objectHash string) string {
-	storageDir := getStorageDir(bucket)
+	storageDir := config.GetStorageDir(bucket)
 	return filepath.Join(storageDir, objectHash[:2], objectHash[2:4], objectHash)
 }
 

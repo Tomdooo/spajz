@@ -5,6 +5,7 @@ import "errors"
 var (
 	ErrBucketNotFound      = errors.New("Bucket not found.")
 	ErrBucketAlreadyExists = errors.New("Bucket already exists.")
+	ErrBucketNotEmpty      = errors.New("Bucket is not empty.")
 
 	ErrFileNotFound      = errors.New("File not found.")
 	ErrFileNotSaved      = errors.New("File not saved.")

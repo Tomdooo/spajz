@@ -93,6 +93,13 @@ func Delete(bucket string) error {
 		return fmt.Errorf("verifying existance of bucket: %w", err)
 	}
 	// TODO: if bucket is not empty, throw 409 BucketNotEmpty
+	dirEntries, err := os.ReadDir(config.GetStorageDir(bucket))
+	if err != nil {
+		return fmt.Errorf("reading storage directory: %w", err)
+	}
+	if len(dirEntries) > 0 {
+		return models.ErrBucketNotEmpty
+	}
 
 	bucketConfigManager.UnloadBucket(bucket)
 	databaseManager.DestroyDatabase(bucket)
