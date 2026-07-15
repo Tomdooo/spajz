@@ -17,7 +17,7 @@ func NewBucketsHandler() *BucketsHandler {
 }
 
 type BucketDto struct {
-	Bucket string `param:"bucket" validate:"required"`
+	Bucket string `param:"bucket" validate:"required,min=3,max=63,spajz_bucket"`
 }
 
 func (h *BucketsHandler) Create(c *echo.Context) error {

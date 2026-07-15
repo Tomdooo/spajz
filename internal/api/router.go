@@ -16,7 +16,7 @@ func RegisterRoutes(g *echo.Group) {
 	bucketGroup.PUT("/:bucket", bucketsHandler.Create)
 	bucketGroup.DELETE("/:bucket", bucketsHandler.Delete)
 
-	storageGroup := g.Group("", echox.StorageAuthMiddleware(bucketConfigManager))
+	storageGroup := g.Group("", echox.StorageValidationMiddleware(), echox.StorageAuthMiddleware(bucketConfigManager))
 	storageHandler := NewStorageHandler()
 	storageGroup.PUT("/:bucket/*", storageHandler.Upload)
 	storageGroup.HEAD("/:bucket/*", storageHandler.Head)

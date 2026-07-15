@@ -2,22 +2,13 @@ package echox
 
 import (
 	"crypto/subtle"
+	"fmt"
 	"net/http"
 
 	"github.com/Tomdooo/spajz/internal/config"
+	"github.com/Tomdooo/spajz/internal/models"
 	"github.com/labstack/echo/v5"
 )
-
-func BindAndValidate[T any](c *echo.Context) (*T, error) {
-	u := new(T)
-	if err := c.Bind(u); err != nil {
-		return nil, err
-	}
-	if err := c.Validate(u); err != nil {
-		return nil, err
-	}
-	return u, nil
-}
 
 func BucketsAuthMiddleware(masterKey string) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -42,11 +33,16 @@ func BucketsAuthMiddleware(masterKey string) echo.MiddlewareFunc {
 	}
 }
 
-func StorageAuthMiddleware(configManager *config.BucketConfigManager) echo.MiddlewareFunc { // TODO: implement properly verification of API key
+func StorageAuthMiddleware(configManager *config.BucketConfigManager) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			bucketName := c.Param("bucket")
 			method := c.Request().Method
+
+			// Validate bucket name before doing anything else
+			if len(bucketName) < 3 || len(bucketName) > 63 || !bucketRegex.MatchString(bucketName) {
+				return echo.NewHTTPError(http.StatusBadRequest, "Invalid bucket name")
+			}
 
 			// get bucket config
 			bucketConfig, err := configManager.GetConfig(bucketName)
@@ -83,6 +79,25 @@ func StorageAuthMiddleware(configManager *config.BucketConfigManager) echo.Middl
 			}
 
 			return echo.NewHTTPError(http.StatusForbidden, "The API key does not have permission for this")
+		}
+	}
+}
+
+func StorageValidationMiddleware() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			bucket := c.Param("bucket")
+			objectKey := c.Param("*")
+
+			params := models.S3LikeDto{
+				Bucket:    bucket,
+				ObjectKey: objectKey,
+			}
+			if err := c.Validate(&params); err != nil {
+				fmt.Println(params)
+				return err
+			}
+			return next(c)
 		}
 	}
 }

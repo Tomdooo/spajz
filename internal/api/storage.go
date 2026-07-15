@@ -17,17 +17,9 @@ func NewStorageHandler() *StorageHandler {
 	return &StorageHandler{}
 }
 
-type S3LikeDto struct {
-	Bucket    string `param:"bucket" validate:"required"`
-	ObjectKey string `param:"*" validate:"required"`
-}
-
 func (h *StorageHandler) Head(c *echo.Context) error {
-	dto := new(S3LikeDto)
+	dto := new(models.S3LikeDto)
 	if err := c.Bind(dto); err != nil {
-		return err
-	}
-	if err := c.Validate(dto); err != nil {
 		return err
 	}
 	fileContext := models.NewFileRequestContext(dto.Bucket, dto.ObjectKey, storage.GetObjectHash(dto.ObjectKey))
@@ -53,11 +45,8 @@ func (h *StorageHandler) Head(c *echo.Context) error {
 }
 
 func (h *StorageHandler) Get(c *echo.Context) error {
-	dto := new(S3LikeDto)
+	dto := new(models.S3LikeDto)
 	if err := c.Bind(dto); err != nil {
-		return err
-	}
-	if err := c.Validate(dto); err != nil {
 		return err
 	}
 
@@ -175,9 +164,6 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 func (h *StorageHandler) Upload(c *echo.Context) error {
 	bucket := c.Param("bucket")
 	objectKey := c.Param("*")
-	if bucket == "" || objectKey == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "Missing bucket or object key")
-	}
 
 	fileReader := c.Request().Body
 	defer fileReader.Close()
@@ -204,11 +190,8 @@ func (h *StorageHandler) Upload(c *echo.Context) error {
 }
 
 func (h *StorageHandler) Delete(c *echo.Context) error {
-	dto := new(S3LikeDto)
+	dto := new(models.S3LikeDto)
 	if err := c.Bind(dto); err != nil {
-		return err
-	}
-	if err := c.Validate(dto); err != nil {
 		return err
 	}
 
