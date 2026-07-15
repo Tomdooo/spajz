@@ -223,12 +223,16 @@ func GetPresetVariant(ctx context.Context, fileContext *models.FileRequestContex
 	// save image variant to cache in separate goroutine
 	go func(ctx context.Context, fileContext *models.FileRequestContext, presetConfig *config.ImagePreset, fileMeta *FileMeta, data []byte) {
 		err := cacheManager.SaveFile(ctx, fileContext, presetConfig, fileMeta.ContentType, data)
-		if err != nil {
+		switch {
+		case errors.Is(err, models.ErrFileTooLarge):
+			slog.Warn("File was too big to save into cache, skipping.", "objectKey", fileContext.ObjectKey, "preset", presetConfig.Name)
+		default:
 			slog.Error("Failed to save image variant into cache.",
 				"bucket", fileContext.Bucket,
 				"objectKey", fileContext.ObjectKey,
 				"preset", presetConfig.Name,
 				"error", err)
+
 		}
 	}(context.Background(), fileContext, presetConfig, fileMeta, file)
 

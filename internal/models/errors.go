@@ -11,6 +11,7 @@ var (
 	ErrFileNotSaved      = errors.New("File not saved.")
 	ErrFileAlreadyExists = errors.New("File already exists.")
 	ErrNotEnoughSpace    = errors.New("Not enough space.")
+	ErrFileTooLarge      = errors.New("File is too large.")
 
 	ErrPresetNotFound    = errors.New("Preset not found.")
 	ErrUnsupportedFormat = errors.New("Unsupported format.")

@@ -38,9 +38,7 @@ type CacheManager struct {
 
 func (m *CacheManager) SaveFile(ctx context.Context, fileContext *models.FileRequestContext, presetConfig *config.ImagePreset, mimeType string, data []byte) error {
 	if len(data) > MAX_IN_DATABASE_FILE_SIZE {
-		// TODO: think of different log / err handling
-		slog.Warn("File was too big to save into cache, skipping.", "objectKey", fileContext.ObjectKey, "preset", presetConfig.Name)
-		return nil
+		return models.ErrFileTooLarge
 	}
 
 	database, err := m.databaseManager.GetDatabase(fileContext.Bucket)
