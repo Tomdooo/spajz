@@ -7,14 +7,16 @@ var (
 	ErrBucketAlreadyExists = errors.New("Bucket already exists.")
 	ErrBucketNotEmpty      = errors.New("Bucket is not empty.")
 
-	ErrFileNotFound      = errors.New("File not found.")
-	ErrFileNotSaved      = errors.New("File not saved.")
-	ErrFileAlreadyExists = errors.New("File already exists.")
-	ErrNotEnoughSpace    = errors.New("Not enough space.")
-	ErrFileTooLarge      = errors.New("File is too large.")
+	ErrFileNotFound       = errors.New("File not found.")
+	ErrFileNotSaved       = errors.New("File not saved.")
+	ErrFileAlreadyExists  = errors.New("File already exists.")
+	ErrNotEnoughSpace     = errors.New("Not enough space.")
+	ErrFileTooLarge       = errors.New("File is too large.")
+	ErrFileNotProcessable = errors.New("File is not processable.")
 
-	ErrPresetNotFound    = errors.New("Preset not found.")
-	ErrUnsupportedFormat = errors.New("Unsupported format.")
+	ErrPresetNotFound       = errors.New("Preset not found.")
+	ErrUnsupportedFormat    = errors.New("Unsupported format.")
+	ErrImageNotProccessable = errors.New("Image is not processable.")
 
 	ErrDatabaseAlreadyExists = errors.New("Database already exists.")
 )

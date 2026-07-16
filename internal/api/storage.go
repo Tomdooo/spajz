@@ -70,6 +70,10 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 
 		if err != nil {
 			switch {
+			case errors.Is(err, models.ErrFileNotProcessable):
+				return echo.NewHTTPError(http.StatusBadRequest, "File is not processable.")
+			case errors.Is(err, models.ErrImageNotProccessable):
+				return echo.NewHTTPError(http.StatusBadRequest, "Image type is not processable.")
 			case errors.Is(err, models.ErrPresetNotFound):
 				return echo.NewHTTPError(http.StatusBadRequest, "No such preset.")
 			case errors.Is(err, models.ErrBucketNotFound):
@@ -168,8 +172,10 @@ func (h *StorageHandler) Upload(c *echo.Context) error {
 	fileReader := c.Request().Body
 	defer fileReader.Close()
 
+	contentType := c.Request().Header.Get("Content-Type")
+
 	fileContext := models.NewFileRequestContext(bucket, objectKey, storage.GetObjectHash(objectKey))
-	metadata, err := storage.Add(fileContext, fileReader)
+	metadata, err := storage.Add(fileContext, contentType, fileReader)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrBucketNotFound):

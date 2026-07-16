@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Tomdooo/spajz/internal/config"
 	"github.com/Tomdooo/spajz/pkg/hashx"
@@ -39,4 +40,30 @@ func detectContentType(filePath string) (string, error) {
 
 	// Analyzujeme pouze skutečně přečtené bajty
 	return http.DetectContentType(buffer[:n]), nil
+}
+
+// detect content type and if not fully detectable, replace with one from request
+func determinContentType(filename string, contentTypeClaim string) (string, error) {
+	determinedContentType, err := detectContentType(filename)
+	if err != nil {
+		return "", fmt.Errorf("detecting content type of temp file %s: %w", filename, err)
+	}
+	if strings.HasPrefix(determinedContentType, "text/plain") {
+		// types that cannot be just simple plain text = is text, but user says it is binary
+		isBinaryClaim := strings.HasPrefix(contentTypeClaim, "image/") ||
+			strings.HasPrefix(contentTypeClaim, "video/") ||
+			strings.HasPrefix(contentTypeClaim, "audio/") ||
+			contentTypeClaim == "application/zip" ||
+			contentTypeClaim == "application/pdf" ||
+			contentTypeClaim == "application/octet-stream"
+
+		if !isBinaryClaim && contentTypeClaim != "" {
+			// user uploaded non-binary, we trust him
+			determinedContentType = contentTypeClaim
+		} else {
+			// we dont trust the user or there is not more specific content type
+			determinedContentType = "application/octet-stream"
+		}
+	}
+	return determinedContentType, nil
 }

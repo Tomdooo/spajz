@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/Tomdooo/spajz/internal/buckets"
@@ -30,7 +31,7 @@ const (
 var cacheManager = cache.GetCacheManager()
 var bucketConfigManager = config.GetBucketConfigManager()
 
-func Add(fileContext *models.FileRequestContext, r io.Reader) (*FileMeta, error) {
+func Add(fileContext *models.FileRequestContext, contentType string, r io.Reader) (*FileMeta, error) {
 	// Verify bucket existance
 	if bucketExists, err := buckets.Exists(fileContext.Bucket); err != nil {
 		return nil, fmt.Errorf("verifying existance of bucket: %w", err)
@@ -100,17 +101,19 @@ func Add(fileContext *models.FileRequestContext, r io.Reader) (*FileMeta, error)
 		return nil, fmt.Errorf("getting temp file stats (%s): %w", tempFile.Name(), err)
 	}
 
-	contentType, err := detectContentType(tempFile.Name())
+	// detect content type and if not fully detectable, replace with one from request
+	determinedContentType, err := determinContentType(tempFile.Name(), contentType)
 	if err != nil {
-		return nil, fmt.Errorf("detecting content type of temp file %s: %w", tempFile.Name(), err)
+		return nil, fmt.Errorf("determining content type of temp file %s: %w", tempFile.Name(), err)
 	}
+
 	metadata := &FileMeta{
 		Id:          hashedFilename,
 		Bucket:      fileContext.Bucket,
 		ObjectKey:   fileContext.ObjectKey,
 		Filename:    fileContext.Filename,
 		Size:        fileStats.Size(),
-		ContentType: contentType,
+		ContentType: determinedContentType,
 		Ext:         filepath.Ext(fileContext.Filename),
 		Etag:        etag,
 	}
@@ -179,6 +182,21 @@ func GetWithMetadata(fileContext *models.FileRequestContext) ([]byte, *FileMeta,
 
 // NOTE: returns only partial metadata to satisfy HTTP response headers
 func GetPresetVariant(ctx context.Context, fileContext *models.FileRequestContext, preset string) (file []byte, fileMeta *FileMeta, isCacheHit bool, err error) {
+	metadata, err := GetMetadata(fileContext)
+	if err != nil {
+		return nil, nil, false, fmt.Errorf("getting file metadata: %w", err)
+	}
+
+	// verify if file is processable
+	if isImage := strings.HasPrefix(metadata.ContentType, "image/"); !isImage {
+		return nil, nil, false, models.ErrFileNotProcessable
+	}
+
+	isProcessableImg := imageGenerator.IsProcessableImage(metadata.ContentType)
+	if !isProcessableImg {
+		return nil, nil, false, models.ErrImageNotProccessable
+	}
+
 	// get image preset and work with that for ensured consistency
 	presetConfig, err := bucketConfigManager.GetImagePreset(fileContext.Bucket, preset)
 	if err != nil {

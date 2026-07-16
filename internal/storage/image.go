@@ -23,6 +23,21 @@ func NewImageGenerator() *ImageGenerator {
 	}
 }
 
+func (ig *ImageGenerator) IsProcessableImage(mimeType string) bool {
+	switch mimeType {
+	case "image/jpeg",
+		"image/jpg",
+		"image/png",
+		"image/webp",
+		"image/gif",
+		"image/heif",
+		"image/avif":
+		return true
+	default:
+		return false
+	}
+}
+
 func (ig *ImageGenerator) getBimgImageType(format string) (bimg.ImageType, error) {
 	switch strings.ToLower(format) {
 	case "webp":
