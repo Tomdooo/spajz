@@ -53,9 +53,9 @@ func determinContentType(filename string, contentTypeClaim string) (string, erro
 		isBinaryClaim := strings.HasPrefix(contentTypeClaim, "image/") ||
 			strings.HasPrefix(contentTypeClaim, "video/") ||
 			strings.HasPrefix(contentTypeClaim, "audio/") ||
-			contentTypeClaim == "application/zip" ||
-			contentTypeClaim == "application/pdf" ||
-			contentTypeClaim == "application/octet-stream"
+			strings.HasPrefix(contentTypeClaim, "application/zip") ||
+			strings.HasPrefix(contentTypeClaim, "application/pdf") ||
+			strings.HasPrefix(contentTypeClaim, "application/octet-stream")
 
 		if !isBinaryClaim && contentTypeClaim != "" {
 			// user uploaded non-binary, we trust him
