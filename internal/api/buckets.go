@@ -30,7 +30,8 @@ func (h *BucketsHandler) Create(c *echo.Context) error {
 		return err
 	}
 	// create bucket
-	if err := buckets.Create(dto.Bucket); err != nil {
+	defaultApiKey, err := buckets.Create(dto.Bucket)
+	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrBucketAlreadyExists):
 			return echo.NewHTTPError(http.StatusConflict, "No such bucket.")
@@ -43,7 +44,14 @@ func (h *BucketsHandler) Create(c *echo.Context) error {
 	}
 	header := c.Response().Header()
 	header.Set("Location", "/"+dto.Bucket)
-	return c.NoContent(http.StatusOK)
+
+	type CreateBucketResponse struct {
+		DefaultApiKey string `json:"default_api_key"`
+	}
+	resBody := new(CreateBucketResponse{
+		DefaultApiKey: defaultApiKey,
+	})
+	return c.JSON(http.StatusOK, resBody)
 }
 
 func (h *BucketsHandler) Delete(c *echo.Context) error {

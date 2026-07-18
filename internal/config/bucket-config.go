@@ -33,11 +33,11 @@ func GetBucketConfigManager() *BucketConfigManager {
 	return bucketConfigManager
 }
 
-func (m *BucketConfigManager) GetDefaultConfig() *BucketConfig {
+func (m *BucketConfigManager) GetDefaultConfig(defaultApiKey string) *BucketConfig {
 	apiKeys := make(ApiKeys, 0)
 	apiKeys = append(apiKeys, ApiKey{
 		Name:         "default",
-		Key:          "spajz-default-api-key", // TODO: refactor...
+		Key:          defaultApiKey,
 		AllowReading: true,
 		AllowUpload:  true,
 		AllowDelete:  true,

@@ -14,38 +14,43 @@ import (
 var bucketConfigManager = config.GetBucketConfigManager()
 var databaseManager = db.GetDatabaseManager()
 
-func Create(bucket string) error {
+func Create(bucket string) (defaultApiKey string, err error) {
 	bucketDir := config.GetBucketDir(bucket)
 	configFile := config.GetBucketConfigPath(bucket)
 
-	if err := os.MkdirAll(bucketDir, 0o755); err != nil {
-		return fmt.Errorf("creating bucket directory: %w", err)
+	defaultApiKey, err = generateRandomKey()
+	if err != nil {
+		return "", fmt.Errorf("generating random default API key: %w", err)
+	}
+
+	if err = os.MkdirAll(bucketDir, 0o755); err != nil {
+		return "", fmt.Errorf("creating bucket directory: %w", err)
 	}
 
 	// Open file - O_CREATE = create if not exists, O_EXCL = return error if exists, O_WRONLY = write only
 	f, err := os.OpenFile(configFile, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if err != nil {
 		if os.IsExist(err) {
-			return models.ErrBucketAlreadyExists
+			return "", models.ErrBucketAlreadyExists
 		}
-		return fmt.Errorf("opening bucket config file: %w", err)
+		return "", fmt.Errorf("opening bucket config file: %w", err)
 	}
 	defer f.Close()
 
-	defaultConfigToml, err := toml.Marshal(bucketConfigManager.GetDefaultConfig())
+	defaultConfigToml, err := toml.Marshal(bucketConfigManager.GetDefaultConfig(defaultApiKey))
 	if err != nil {
-		return fmt.Errorf("failed to marshal default bucket config: %w", err)
+		return "", fmt.Errorf("failed to marshal default bucket config: %w", err)
 	}
 
 	if _, err := f.Write(defaultConfigToml); err != nil {
-		return fmt.Errorf("writing default config into file: %w", err)
+		return "", fmt.Errorf("writing default config into file: %w", err)
 	}
 
 	// load bucket
 	bucketConfigManager.LoadBucket(bucket)
 	databaseManager.InitDatabase(bucket)
 
-	return nil
+	return defaultApiKey, nil
 }
 
 type BucketEntry struct {
@@ -94,7 +99,7 @@ func Delete(bucket string) error {
 	}
 	// TODO: if bucket is not empty, throw 409 BucketNotEmpty
 	dirEntries, err := os.ReadDir(config.GetStorageDir(bucket))
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("reading storage directory: %w", err)
 	}
 	if len(dirEntries) > 0 {
