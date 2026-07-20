@@ -108,6 +108,7 @@ func (m *BucketConfigManager) loadBucket(bucket string) error {
 		return fmt.Errorf("decoding bucket config: %w", err)
 	}
 
+	bucketConfig.Name = bucket
 	bucketConfig.Cache.MaxSizeBytes = int64(bucketConfig.Cache.MaxSizeGB) * 1024 * 1024 * 1024
 
 	createdAt, err := m.getCreatedAt(bucket)
@@ -116,9 +117,11 @@ func (m *BucketConfigManager) loadBucket(bucket string) error {
 	}
 	bucketConfig.CreatedAt = createdAt
 
-	if err := bucketConfig.Presets.ProcessPresets(); err != nil {
+	if err := bucketConfig.ProcessPresets(); err != nil {
 		return fmt.Errorf("loading bucket presets: %w", err)
 	}
+
+	slog.Info("Loaded bucket image presets.", "bucket", bucket, "imagePresets", bucketConfig.Presets.GetImagePresetList())
 
 	m.configMap[bucket] = bucketConfig
 

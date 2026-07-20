@@ -7,6 +7,7 @@ import (
 
 	"github.com/Tomdooo/spajz/internal/config"
 	"github.com/Tomdooo/spajz/internal/models"
+	"github.com/Tomdooo/spajz/pkg/validatorx"
 	"github.com/labstack/echo/v5"
 )
 
@@ -40,7 +41,7 @@ func StorageAuthMiddleware(configManager *config.BucketConfigManager) echo.Middl
 			method := c.Request().Method
 
 			// Validate bucket name before doing anything else
-			if len(bucketName) < 3 || len(bucketName) > 63 || !bucketRegex.MatchString(bucketName) {
+			if len(bucketName) < 3 || len(bucketName) > 63 || !validatorx.BucketRegex.MatchString(bucketName) {
 				return echo.NewHTTPError(http.StatusBadRequest, "Invalid bucket name")
 			}
 

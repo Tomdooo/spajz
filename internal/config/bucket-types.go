@@ -5,11 +5,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/Tomdooo/spajz/internal/models"
 	"github.com/Tomdooo/spajz/pkg/hashx"
+	"github.com/Tomdooo/spajz/pkg/validatorx"
 )
 
 type ImagePresetMap map[string]*ImagePreset
@@ -17,11 +19,16 @@ type ImagePresetMap map[string]*ImagePreset
 // type VideoPresetMap map[string]*VideoPreset
 
 type BucketConfig struct {
+	Name      string
 	Bucket    BucketSection  `toml:"bucket"`
 	Cache     CacheSection   `toml:"cache"`
 	Presets   PresetsSection `toml:"presets"`
 	CreatedAt time.Time
 	Database  *sql.DB
+}
+
+func (c *BucketConfig) ProcessPresets() error {
+	return c.Presets.ProcessPresets(c.Name)
 }
 
 type BucketSection struct {
@@ -75,11 +82,16 @@ type ImagePreset struct {
 // 	BitrateKbps int    `toml:"bitrate_kbps"`
 // }
 
-func (c *PresetsSection) ProcessPresets() error {
+func (c *PresetsSection) ProcessPresets(bucket string) error {
 	c.mu.Lock() // ?: with presets refactor move into public method
 	defer c.mu.Unlock()
 	c.Image = make(ImagePresetMap)
 	for _, imagePreset := range c.RawImagePresets {
+		// validate preset name
+		if !validatorx.PresetRegex.MatchString(imagePreset.Name) {
+			slog.Error("Image preset name does not have valid format.", "bucket", bucket, "name", imagePreset.Name, "requiredFormat", validatorx.PresetRegex.String())
+			continue
+		}
 		// calculate config hash
 		configJson, err := json.Marshal(imagePreset)
 		if err != nil {
@@ -97,6 +109,16 @@ func (c *PresetsSection) ProcessPresets() error {
 	// 	c.Presets.Video[videoPreset.Name] = &videoPreset
 	// }
 	return nil
+}
+
+func (c *PresetsSection) GetImagePresetList() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	list := []string{}
+	for _, preset := range c.Image {
+		list = append(list, preset.Name)
+	}
+	return list
 }
 
 func (c *PresetsSection) GetImagePreset(preset string) (*ImagePreset, error) {

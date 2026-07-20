@@ -1,4 +1,4 @@
-package echox
+package validatorx
 
 import (
 	"fmt"
@@ -13,7 +13,8 @@ var (
 	// bucketRegex enforces AWS S3 naming rules (excluding length):
 	// - Must start and end with a lowercase letter or number.
 	// - Can contain lowercase letters, numbers, and hyphens in between.
-	bucketRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`)
+	BucketRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`)
+	PresetRegex = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$`)
 )
 
 // CustomValidator wraps the go-playground validator to integrate with the Echo framework.
@@ -27,7 +28,7 @@ func NewValidator() *CustomValidator {
 
 	// Register validator for Bucket names (AWS S3 compliant characters only)
 	err := v.RegisterValidation("spajz_bucket", func(fl validator.FieldLevel) bool {
-		return bucketRegex.MatchString(fl.Field().String())
+		return BucketRegex.MatchString(fl.Field().String())
 	})
 	if err != nil {
 		panic(fmt.Sprintf("failed to register spajz_bucket validator: %v", err))

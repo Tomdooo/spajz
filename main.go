@@ -8,7 +8,7 @@ import (
 	"github.com/Tomdooo/spajz/internal/api"
 	"github.com/Tomdooo/spajz/internal/config"
 	"github.com/Tomdooo/spajz/internal/db"
-	"github.com/Tomdooo/spajz/pkg/echox"
+	"github.com/Tomdooo/spajz/pkg/validatorx"
 	"github.com/charmbracelet/log"
 	"github.com/labstack/echo/v5"
 	"github.com/labstack/echo/v5/middleware"
@@ -46,7 +46,7 @@ func main() {
 	e := echo.New()
 
 	e.Logger = logger
-	e.Validator = echox.NewValidator()
+	e.Validator = validatorx.NewValidator()
 
 	// Middlewares
 	e.Use(middleware.RequestLogger())
