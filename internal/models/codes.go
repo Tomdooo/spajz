@@ -13,8 +13,10 @@ const (
 	CodeFileNotProcessable = "FILE_NOT_PROCESSABLE"
 
 	CodePresetNotFound      = "PRESET_NOT_FOUND"
+	CodePresetFormatInvalid = "PRESET_FORMAT_INVALID"
 	CodeUnsupportedFormat   = "UNSUPPORTED_FORMAT"
 	CodeImageNotProcessable = "IMAGE_NOT_PROCESSABLE"
 
 	CodeDatabaseAlreadyExists = "DATABASE_ALREADY_EXISTS"
+	CodeInvalidURLFormat      = "INVALID_URL_FORMAT"
 )

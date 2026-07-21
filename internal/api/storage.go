@@ -1,14 +1,13 @@
 package api
 
 import (
-	"errors"
-	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/Tomdooo/spajz/internal/models"
 	"github.com/Tomdooo/spajz/internal/storage"
 	"github.com/Tomdooo/spajz/pkg/echox"
+	"github.com/Tomdooo/spajz/pkg/validatorx"
 	"github.com/labstack/echo/v5"
 )
 
@@ -27,18 +26,7 @@ func (h *StorageHandler) Head(c *echo.Context) error {
 
 	metadata, err := storage.GetMetadata(fileContext)
 	if err != nil {
-		switch {
-		case errors.Is(err, models.ErrBucketNotFound):
-			return echox.ErrorResponse(c, http.StatusNotFound, "No such bucket.", err)
-		case errors.Is(err, models.ErrFileNotFound):
-			return echox.ErrorResponse(c, http.StatusNotFound, "No such file.", err)
-		default:
-			slog.Error("Failed to get storage file metadata.",
-				"bucket", fileContext.Bucket,
-				"objectKey", fileContext.ObjectKey,
-				"error", err)
-			return err
-		}
+		return echox.HandleError(c, err, "bucket", fileContext.Bucket, "objectKey", fileContext.ObjectKey)
 	}
 
 	setFileFullHeaders(c, metadata)
@@ -59,10 +47,13 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 		ctx := c.Request().Context()
 		splittedObjectKey := strings.Split(dto.ObjectKey, "@")
 		if len(splittedObjectKey) > 2 {
-			return echox.ErrorResponse(c, http.StatusBadRequest, "Bad URL format, please use /<bucket>/<file_path>@<preset>.", nil)
+			return echox.HandleError(c, models.ErrInvalidURLFormat)
 		}
 		objectKey := splittedObjectKey[0]
 		preset := splittedObjectKey[1]
+		if valid := validatorx.PresetRegex.MatchString(preset); !valid { // validate preset name
+			return echox.HandleError(c, models.ErrPresetFormatInvalid)
+		}
 
 		fileContext := models.NewFileRequestContext(dto.Bucket, objectKey, storage.GetObjectHash(objectKey))
 
@@ -70,35 +61,10 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 		file, metadata, isCacheHit, err = storage.GetPresetVariant(ctx, fileContext, preset)
 
 		if err != nil {
-			switch {
-			case errors.Is(err, models.ErrFileNotProcessable):
-				return echox.ErrorResponse(c, http.StatusBadRequest, "File is not processable.", err)
-			case errors.Is(err, models.ErrImageNotProcessable):
-				return echox.ErrorResponse(c, http.StatusBadRequest, "Image type is not processable.", err)
-			case errors.Is(err, models.ErrPresetNotFound):
-				return echox.ErrorResponse(c, http.StatusBadRequest, "No such preset.", err)
-			case errors.Is(err, models.ErrBucketNotFound):
-				return echox.ErrorResponse(c, http.StatusNotFound, "No such bucket.", err)
-			case errors.Is(err, models.ErrFileNotFound):
-				return echox.ErrorResponse(c, http.StatusNotFound, "No such file.", err)
-			case errors.Is(err, models.ErrUnsupportedFormat):
-				slog.Error("Unsupported image variant format.",
-					"bucket", fileContext.Bucket,
-					"objectKey", fileContext.ObjectKey,
-					"preset", preset,
-					"error", err)
-				return err
-			default:
-				slog.Error("Failed to get storage file image variant.",
-					"bucket", fileContext.Bucket,
-					"objectKey", fileContext.ObjectKey,
-					"preset", preset,
-					"error", err)
-				return err
-			}
+			return echox.HandleError(c, err, "bucket", fileContext.Bucket, "objectKey", fileContext.ObjectKey, "preset", preset)
 		} else {
 			if isCacheHit {
-				c.Response().Header().Set("X-Cache", "HIT") // TODO: verify format of the header
+				c.Response().Header().Set("X-Cache", "HIT")
 			} else {
 				c.Response().Header().Set("X-Cache", "MISS")
 			}
@@ -108,18 +74,7 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 		file, metadata, err = storage.GetWithMetadata(fileContext)
 
 		if err != nil {
-			switch {
-			case errors.Is(err, models.ErrBucketNotFound):
-				return echox.ErrorResponse(c, http.StatusNotFound, "No such bucket.", err)
-			case errors.Is(err, models.ErrFileNotFound):
-				return echox.ErrorResponse(c, http.StatusNotFound, "No such file.", err)
-			default:
-				slog.Error("Failed to get storage file.",
-					"bucket", fileContext.Bucket,
-					"objectKey", fileContext.ObjectKey,
-					"error", err)
-				return err
-			}
+			return echox.HandleError(c, err, "bucket", fileContext.Bucket, "objectKey", fileContext.ObjectKey)
 		}
 	}
 
@@ -178,18 +133,7 @@ func (h *StorageHandler) Upload(c *echo.Context) error {
 	fileContext := models.NewFileRequestContext(bucket, objectKey, storage.GetObjectHash(objectKey))
 	metadata, err := storage.Add(fileContext, contentType, fileReader)
 	if err != nil {
-		switch {
-		case errors.Is(err, models.ErrBucketNotFound):
-			return echox.ErrorResponse(c, http.StatusNotFound, "No such bucket.", err)
-		case errors.Is(err, models.ErrFileAlreadyExists):
-			return echox.ErrorResponse(c, http.StatusConflict, "File already exists.", err)
-		default:
-			slog.Error("Failed to upload storage file.",
-				"bucket", fileContext.Bucket,
-				"objectKey", fileContext.ObjectKey,
-				"error", err)
-			return err
-		}
+		return echox.HandleError(c, err, "bucket", fileContext.Bucket, "objectKey", fileContext.ObjectKey)
 	}
 
 	setFileEtagHeader(c, metadata)
@@ -205,18 +149,7 @@ func (h *StorageHandler) Delete(c *echo.Context) error {
 	ctx := c.Request().Context()
 	fileContext := models.NewFileRequestContext(dto.Bucket, dto.ObjectKey, storage.GetObjectHash(dto.ObjectKey))
 	if err := storage.Delete(ctx, fileContext); err != nil {
-		switch {
-		case errors.Is(err, models.ErrBucketNotFound):
-			return echox.ErrorResponse(c, http.StatusNotFound, "No such bucket.", err)
-		case errors.Is(err, models.ErrFileNotFound):
-			return echox.ErrorResponse(c, http.StatusNotFound, "No such file.", err)
-		default:
-			slog.Error("Failed to delete storage file.",
-				"bucket", fileContext.Bucket,
-				"objectKey", fileContext.ObjectKey,
-				"error", err)
-			return err
-		}
+		return echox.HandleError(c, err, "bucket", fileContext.Bucket, "objectKey", fileContext.ObjectKey)
 	}
 
 	return c.NoContent(http.StatusNoContent)

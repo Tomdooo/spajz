@@ -15,8 +15,10 @@ var (
 	ErrFileNotProcessable = errors.New("File is not processable.")
 
 	ErrPresetNotFound      = errors.New("Preset not found.")
+	ErrPresetFormatInvalid = errors.New("Preset format is not valid.")
 	ErrUnsupportedFormat   = errors.New("Unsupported format.")
 	ErrImageNotProcessable = errors.New("Image is not processable.")
 
 	ErrDatabaseAlreadyExists = errors.New("Database already exists.")
+	ErrInvalidURLFormat      = errors.New("Invalid URL format.")
 )
