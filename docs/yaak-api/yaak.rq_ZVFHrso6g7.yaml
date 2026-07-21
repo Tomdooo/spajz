@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_ZVFHrso6g7
 createdAt: 2026-07-05T17:09:52.356535
-updatedAt: 2026-07-05T17:12:00.390108
+updatedAt: 2026-07-18T00:01:08.679943
 workspaceId: wk_pUShbrDqVw
 folderId: fl_u5br3ybhoE
 authentication: {}
@@ -15,7 +15,15 @@ body:
     }
 bodyType: null
 description: ''
-headers: []
+headers:
+- enabled: true
+  name: X-Spajz-Master-Key
+  value: spajz-master-key
+  id: kf2QjPcfNj
+- enabled: true
+  name: ''
+  value: ''
+  id: mNe9893H3A
 method: DELETE
 name: Delete bucket
 sortPriority: 0.001
@@ -23,12 +31,16 @@ url: ${[ URL ]}/:bucket
 urlParameters:
 - enabled: true
   name: :bucket
-  value: bucket
+  value: yaak1
   id: fEzPJtuI98
 - enabled: true
   name: ''
   value: ''
-  id: YrSpdK6pVs
+  id: bwccGe5ucD
+- enabled: true
+  name: ''
+  value: ''
+  id: 6Kpn0X34FJ
 settingSendCookies:
   enabled: false
   value: true

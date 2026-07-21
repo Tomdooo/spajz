@@ -194,7 +194,7 @@ func GetPresetVariant(ctx context.Context, fileContext *models.FileRequestContex
 
 	isProcessableImg := imageGenerator.IsProcessableImage(metadata.ContentType)
 	if !isProcessableImg {
-		return nil, nil, false, models.ErrImageNotProccessable
+		return nil, nil, false, models.ErrImageNotProcessable
 	}
 
 	// get image preset and work with that for ensured consistency

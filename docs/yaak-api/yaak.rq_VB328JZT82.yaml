@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_VB328JZT82
 createdAt: 2026-07-04T14:23:11.152751
-updatedAt: 2026-07-05T17:11:52.889053
+updatedAt: 2026-07-18T00:00:56.075602
 workspaceId: wk_pUShbrDqVw
 folderId: fl_u5br3ybhoE
 authentication: {}
@@ -15,7 +15,15 @@ body:
     }
 bodyType: null
 description: ''
-headers: []
+headers:
+- enabled: true
+  name: X-Spajz-Master-Key
+  value: spajz-master-key
+  id: Pgv0IcGJs8
+- enabled: true
+  name: ''
+  value: ''
+  id: aUs63xKI2Q
 method: PUT
 name: Create bucket
 sortPriority: 0.0
@@ -23,12 +31,12 @@ url: ${[ URL ]}/:bucket
 urlParameters:
 - enabled: true
   name: :bucket
-  value: bucket
+  value: yaak1
   id: fEzPJtuI98
 - enabled: true
   name: ''
   value: ''
-  id: pDj7dvJBXM
+  id: qNEx3a9H6Y
 settingSendCookies:
   enabled: false
   value: true

@@ -8,6 +8,7 @@ import (
 
 	"github.com/Tomdooo/spajz/internal/models"
 	"github.com/Tomdooo/spajz/internal/storage"
+	"github.com/Tomdooo/spajz/pkg/echox"
 	"github.com/labstack/echo/v5"
 )
 
@@ -28,9 +29,9 @@ func (h *StorageHandler) Head(c *echo.Context) error {
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrBucketNotFound):
-			return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+			return echox.ErrorResponse(c, http.StatusNotFound, "No such bucket.", err)
 		case errors.Is(err, models.ErrFileNotFound):
-			return echo.NewHTTPError(http.StatusNotFound, "No such file.")
+			return echox.ErrorResponse(c, http.StatusNotFound, "No such file.", err)
 		default:
 			slog.Error("Failed to get storage file metadata.",
 				"bucket", fileContext.Bucket,
@@ -58,7 +59,7 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 		ctx := c.Request().Context()
 		splittedObjectKey := strings.Split(dto.ObjectKey, "@")
 		if len(splittedObjectKey) > 2 {
-			return echo.NewHTTPError(http.StatusBadRequest, "Bad URL format, please use /<bucket>/<file_path>@<preset>.")
+			return echox.ErrorResponse(c, http.StatusBadRequest, "Bad URL format, please use /<bucket>/<file_path>@<preset>.", nil)
 		}
 		objectKey := splittedObjectKey[0]
 		preset := splittedObjectKey[1]
@@ -71,15 +72,15 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 		if err != nil {
 			switch {
 			case errors.Is(err, models.ErrFileNotProcessable):
-				return echo.NewHTTPError(http.StatusBadRequest, "File is not processable.")
-			case errors.Is(err, models.ErrImageNotProccessable):
-				return echo.NewHTTPError(http.StatusBadRequest, "Image type is not processable.")
+				return echox.ErrorResponse(c, http.StatusBadRequest, "File is not processable.", err)
+			case errors.Is(err, models.ErrImageNotProcessable):
+				return echox.ErrorResponse(c, http.StatusBadRequest, "Image type is not processable.", err)
 			case errors.Is(err, models.ErrPresetNotFound):
-				return echo.NewHTTPError(http.StatusBadRequest, "No such preset.")
+				return echox.ErrorResponse(c, http.StatusBadRequest, "No such preset.", err)
 			case errors.Is(err, models.ErrBucketNotFound):
-				return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+				return echox.ErrorResponse(c, http.StatusNotFound, "No such bucket.", err)
 			case errors.Is(err, models.ErrFileNotFound):
-				return echo.NewHTTPError(http.StatusNotFound, "No such file.")
+				return echox.ErrorResponse(c, http.StatusNotFound, "No such file.", err)
 			case errors.Is(err, models.ErrUnsupportedFormat):
 				slog.Error("Unsupported image variant format.",
 					"bucket", fileContext.Bucket,
@@ -109,9 +110,9 @@ func (h *StorageHandler) Get(c *echo.Context) error {
 		if err != nil {
 			switch {
 			case errors.Is(err, models.ErrBucketNotFound):
-				return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+				return echox.ErrorResponse(c, http.StatusNotFound, "No such bucket.", err)
 			case errors.Is(err, models.ErrFileNotFound):
-				return echo.NewHTTPError(http.StatusNotFound, "No such file.")
+				return echox.ErrorResponse(c, http.StatusNotFound, "No such file.", err)
 			default:
 				slog.Error("Failed to get storage file.",
 					"bucket", fileContext.Bucket,
@@ -179,9 +180,9 @@ func (h *StorageHandler) Upload(c *echo.Context) error {
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrBucketNotFound):
-			return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+			return echox.ErrorResponse(c, http.StatusNotFound, "No such bucket.", err)
 		case errors.Is(err, models.ErrFileAlreadyExists):
-			return echo.NewHTTPError(http.StatusConflict, "File already exists.")
+			return echox.ErrorResponse(c, http.StatusConflict, "File already exists.", err)
 		default:
 			slog.Error("Failed to upload storage file.",
 				"bucket", fileContext.Bucket,
@@ -206,9 +207,9 @@ func (h *StorageHandler) Delete(c *echo.Context) error {
 	if err := storage.Delete(ctx, fileContext); err != nil {
 		switch {
 		case errors.Is(err, models.ErrBucketNotFound):
-			return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+			return echox.ErrorResponse(c, http.StatusNotFound, "No such bucket.", err)
 		case errors.Is(err, models.ErrFileNotFound):
-			return echo.NewHTTPError(http.StatusNotFound, "No such file.")
+			return echox.ErrorResponse(c, http.StatusNotFound, "No such file.", err)
 		default:
 			slog.Error("Failed to delete storage file.",
 				"bucket", fileContext.Bucket,

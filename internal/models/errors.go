@@ -14,9 +14,9 @@ var (
 	ErrFileTooLarge       = errors.New("File is too large.")
 	ErrFileNotProcessable = errors.New("File is not processable.")
 
-	ErrPresetNotFound       = errors.New("Preset not found.")
-	ErrUnsupportedFormat    = errors.New("Unsupported format.")
-	ErrImageNotProccessable = errors.New("Image is not processable.")
+	ErrPresetNotFound      = errors.New("Preset not found.")
+	ErrUnsupportedFormat   = errors.New("Unsupported format.")
+	ErrImageNotProcessable = errors.New("Image is not processable.")
 
 	ErrDatabaseAlreadyExists = errors.New("Database already exists.")
 )

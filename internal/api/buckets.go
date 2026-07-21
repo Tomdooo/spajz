@@ -7,6 +7,7 @@ import (
 
 	"github.com/Tomdooo/spajz/internal/buckets"
 	"github.com/Tomdooo/spajz/internal/models"
+	"github.com/Tomdooo/spajz/pkg/echox"
 	"github.com/labstack/echo/v5"
 )
 
@@ -34,7 +35,7 @@ func (h *BucketsHandler) Create(c *echo.Context) error {
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrBucketAlreadyExists):
-			return echo.NewHTTPError(http.StatusConflict, "No such bucket.")
+			return echox.ErrorResponse(c, http.StatusConflict, "Bucket already exists.", err)
 		default:
 			slog.Error("Failed to create bucket.",
 				"bucket", dto.Bucket,
@@ -68,9 +69,9 @@ func (h *BucketsHandler) Delete(c *echo.Context) error {
 	if err := buckets.Delete(dto.Bucket); err != nil {
 		switch {
 		case errors.Is(err, models.ErrBucketNotFound):
-			return echo.NewHTTPError(http.StatusNotFound, "No such bucket.")
+			return echox.ErrorResponse(c, http.StatusNotFound, "No such bucket.", err)
 		case errors.Is(err, models.ErrBucketNotEmpty):
-			return echo.NewHTTPError(http.StatusConflict, "Bucket is not empty.")
+			return echox.ErrorResponse(c, http.StatusConflict, "Bucket is not empty.", err)
 		default:
 			slog.Error("Failed to delete bucket.",
 				"bucket", dto.Bucket,

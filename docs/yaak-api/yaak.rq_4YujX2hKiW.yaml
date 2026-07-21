@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_4YujX2hKiW
 createdAt: 2026-07-05T09:43:08.604993
-updatedAt: 2026-07-05T17:00:39.772941
+updatedAt: 2026-07-15T21:08:43.450762
 workspaceId: wk_pUShbrDqVw
 folderId: fl_CmodvtUBkv
 authentication: {}
@@ -17,9 +17,13 @@ headers:
   value: image/png
   id: 6t54p4T49u
 - enabled: true
+  name: X-Spajz-Key
+  value: spajz-default-api-key
+  id: C9pamSgFYX
+- enabled: true
   name: ''
   value: ''
-  id: dJuA7BRDdq
+  id: AxfW9AEFTb
 method: PUT
 name: Upload file
 sortPriority: 0.0
@@ -36,7 +40,7 @@ urlParameters:
 - enabled: true
   name: ''
   value: ''
-  id: FbD43Z45gX
+  id: tnvPvxi2NQ
 settingSendCookies:
   enabled: false
   value: true

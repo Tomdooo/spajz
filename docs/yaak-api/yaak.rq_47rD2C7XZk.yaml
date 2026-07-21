@@ -2,7 +2,7 @@ type: http_request
 model: http_request
 id: rq_47rD2C7XZk
 createdAt: 2026-07-05T16:36:15.354949
-updatedAt: 2026-07-05T17:00:21.155543
+updatedAt: 2026-07-15T21:09:31.304984
 workspaceId: wk_pUShbrDqVw
 folderId: fl_CmodvtUBkv
 authentication: {}
@@ -10,7 +10,15 @@ authenticationType: null
 body: {}
 bodyType: null
 description: ''
-headers: []
+headers:
+- enabled: true
+  name: X-Spajz-Key
+  value: spajz-default-api-key
+  id: DgUDJEgPYQ
+- enabled: true
+  name: ''
+  value: ''
+  id: mu6n5yT3ry
 method: HEAD
 name: Head file
 sortPriority: 1000.001
@@ -27,7 +35,7 @@ urlParameters:
 - enabled: true
   name: ''
   value: ''
-  id: W0SinaD8nM
+  id: qmnHmEFSrg
 settingSendCookies:
   enabled: false
   value: true
